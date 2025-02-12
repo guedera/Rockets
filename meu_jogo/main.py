@@ -12,7 +12,7 @@ screen = pygame.display.set_mode((WIDTH, HEIGHT))
 clock = pygame.time.Clock()
 
 # Carrega e redimensiona a imagem de fundo
-background = pygame.image.load("meu_jogo/src/images/Fundo.png").convert()
+background = pygame.image.load("src/images/Fundo.png").convert()
 background = pygame.transform.scale(background, (WIDTH, HEIGHT))
 
 # Fontes
