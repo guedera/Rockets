@@ -1,4 +1,3 @@
-# main.py
 import pygame
 import math
 from src.entities.rocket import Rocket
@@ -28,8 +27,8 @@ def draw_rocket(surface, rocket):
     
     A imagem é rotacionada de forma que:
       - Quando rocket.orientacao == 90, o foguete aparece "de pé" (apontando para cima);
-      - Valores maiores que 90 resultam em uma rotação anticlockwise (inclinação para a esquerda);
-      - Valores menores que 90 resultam em uma rotação clockwise (inclinação para a direita).
+      - Valores maiores que 90 resultam em uma rotação antihorária (inclinação para a esquerda);
+      - Valores menores que 90 resultam em uma rotação horária (inclinação para a direita).
     """
     rocket_surf = pygame.Surface((rocket_width, rocket_height), pygame.SRCALPHA)
     # Corpo do foguete: retângulo, nariz triangular e aletas
@@ -39,7 +38,7 @@ def draw_rocket(surface, rocket):
     pygame.draw.polygon(rocket_surf, (150, 150, 150), [(0, rocket_height), (5, rocket_height - 10), (0, rocket_height - 10)])
     pygame.draw.polygon(rocket_surf, (150, 150, 150), [(rocket_width, rocket_height), (rocket_width - 5, rocket_height - 10), (rocket_width, rocket_height - 10)])
     
-    # **Correção:** rotaciona a imagem usando a rotação direta.
+    # Rotaciona a imagem usando a rotação direta:
     # Quando rocket.orientacao == 90, nenhuma rotação é aplicada.
     rotated_surf = pygame.transform.rotate(rocket_surf, (rocket.orientacao - 90))
     rotated_rect = rotated_surf.get_rect(center=(int(rocket.posicao[0]), HEIGHT - int(rocket.posicao[1])))
@@ -59,8 +58,7 @@ while running:
         foguete.alterar_potencia(Rocket.POTENCIA_INCREMENTO)
     if keys[pygame.K_s]:
         foguete.alterar_potencia(-Rocket.POTENCIA_INCREMENTO)
-    # Controle de rotação: A para girar no sentido antihorário (aumenta a orientacao),
-    # D para girar no sentido horário (diminui a orientacao)
+    # Controle de rotação: A para girar no sentido antihorário, D para girar no sentido horário
     if keys[pygame.K_a]:
         foguete.aplicar_torque(+Rocket.ROTATION_TORQUE, delta_time)
     if keys[pygame.K_d]:
@@ -73,7 +71,7 @@ while running:
     foguete.atualizar(delta_time)
 
     # Impede que o foguete penetre o chão:
-    # Se o centro de massa estiver abaixo de rocket_height/2 e movendo-se para baixo, "prende-o" ao chão.
+    # Se o centro de massa estiver abaixo de rocket_height/2 e se movendo para baixo, "prende-o" ao chão.
     rocket_half_height = rocket_height / 2
     if foguete.posicao[1] < rocket_half_height and foguete.velocidade[1] <= 0:
         foguete.posicao[1] = rocket_half_height
@@ -86,11 +84,12 @@ while running:
     pygame.draw.rect(screen, (100, 100, 100), platform_rect)
     # Desenha o foguete
     draw_rocket(screen, foguete)
-    # Desenha a barra de potência (lado direito)
+    # Desenha a barra de potência (lado direito) com moldura
     bar_x, bar_y, bar_width, bar_height = WIDTH - 40, HEIGHT - 150, 20, 100
     pygame.draw.rect(screen, (50, 50, 50), (bar_x, bar_y, bar_width, bar_height))
     filled_height = (foguete.potencia_motor / 100.0) * bar_height
     pygame.draw.rect(screen, (0, 255, 0), (bar_x, bar_y + (bar_height - filled_height), bar_width, filled_height))
+    pygame.draw.rect(screen, (255, 255, 255), (bar_x, bar_y, bar_width, bar_height), 2)
 
     pygame.display.flip()
 

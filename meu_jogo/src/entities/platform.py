@@ -1,4 +1,3 @@
-# platform.py
 class Platform:
     def __init__(self, posicao_x: float, comprimento: float, altura: float = 0):
         """

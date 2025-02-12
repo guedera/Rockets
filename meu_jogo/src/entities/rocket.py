@@ -1,4 +1,3 @@
-# rocket.py
 import math
 
 class Rocket:
