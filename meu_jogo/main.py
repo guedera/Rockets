@@ -22,7 +22,7 @@ small_font = pygame.font.SysFont(None, 24)
 crash_font = pygame.font.SysFont(None, 72)
 
 # Informações de versão e quit (HUD no canto superior esquerdo)
-version_text = "0.7.0"
+version_text = "0.7.2"
 quit_text = "Press ESC to quit"
 
 # Constantes para as setinhas do HUD (usadas para Speed e Orientation)
