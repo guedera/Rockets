@@ -22,7 +22,7 @@ small_font = pygame.font.Font("meu_jogo/src/utils/JetBrainsMono-Regular.ttf", 18
 crash_font = pygame.font.Font("meu_jogo/src/utils/JetBrainsMono-Regular.ttf", 48)
 
 # Informações de versão e quit (HUD no canto superior esquerdo)
-version_text = "0.7.5"
+version_text = "0.8.0"
 quit_text = "Press ESC to quit"
 
 # Constantes para as setinhas do HUD (usadas para Speed e Orientation)
@@ -88,6 +88,9 @@ PIXELS_PER_METER = 100
 # Nova variável para contabilizar o combustível gasto
 fuel_consumed = 0.0
 
+# Nova variável oculta para indicar vitória (pouso seguro na plataforma de pouso)
+win = 0
+
 # Estados do jogo: "intro", "waiting", "play"
 game_state = "intro"
 intro_timer = 0.0
@@ -140,7 +143,7 @@ while running:
             splash_text = splash_font.render("Rocket - by Guilherme Guedes", True, (255, 255, 255))
             splash_rect = splash_text.get_rect(center=(WIDTH // 2, HEIGHT // 2))
             screen.blit(splash_text, splash_rect)
-            if intro_timer >= 2.0:  # Título dura 2 segundos
+            if intro_timer >= 2.0:
                 game_state = "waiting"
         elif game_state == "waiting":
             waiting_text = splash_font.render("Press Space to Play", True, (255, 255, 255))
@@ -154,6 +157,7 @@ while running:
         foguete.reset()
         crashed = False
         fuel_consumed = 0.0
+        win = 0
     if keys[pygame.K_x]:
         foguete.potencia_motor = 0
 
@@ -172,7 +176,6 @@ while running:
         foguete.atualizar(delta_time)
         rocket_half_height = rocket_height / 2
         if foguete.posicao[1] <= rocket_half_height and foguete.velocidade[1] <= 0:
-            # Verifica velocidade resultante no momento do pouso
             landing_speed = math.sqrt(foguete.velocidade[0]**2 + foguete.velocidade[1]**2)
             on_initial = (initial_platform.posicao[0] <= foguete.posicao[0] <= initial_platform.posicao[0] + initial_platform.comprimento)
             on_landing = (landing_platform.posicao[0] <= foguete.posicao[0] <= landing_platform.posicao[0] + landing_platform.comprimento)
@@ -181,6 +184,9 @@ while running:
             else:
                 if on_initial or on_landing:
                     foguete.posicao[1] = rocket_half_height
+                    # Se pousar na plataforma de pouso, marca vitória
+                    if on_landing:
+                        win = 1
                     if foguete.potencia_motor == 0:
                         foguete.velocidade = [0, 0]
                         foguete.angular_velocity = 0
@@ -208,7 +214,6 @@ while running:
     pygame.draw.rect(hud_surface, HUD_BORDER_COLOR, hud_surface.get_rect(), 2, border_radius=HUD_BORDER_RADIUS)
     screen.blit(hud_surface, hud_panel_rect.topleft)
     
-    # --- HUD: Exibe a posição (x:y) em metros relativa à posição inicial ---
     dx_pixels = foguete.posicao[0] - rocket_initial_x
     dy_pixels = foguete.posicao[1] - rocket_initial_y
     pos_x_m = dx_pixels / PIXELS_PER_METER
@@ -217,17 +222,11 @@ while running:
     position_text_rect = position_text.get_rect(center=(hud_panel_rect.centerx, hud_panel_rect.top + 15))
     screen.blit(position_text, position_text_rect)
     
-    # --- HUD: Exibe o combustível gasto ---
     fuel_text = small_font.render(f"Fuel: {fuel_consumed:.2f}", True, (255, 255, 255))
-    # Posiciona o Fuel no lado esquerdo da parte inferior do painel
     fuel_text_rect = fuel_text.get_rect(center=(hud_panel_rect.centerx - 100, hud_panel_rect.bottom - 20))
     screen.blit(fuel_text, fuel_text_rect)
     
-    # --- HUD: Exibe a velocidade resultante ---
-    total_speed = math.sqrt(foguete.velocidade[0]**2 + foguete.velocidade[1]**2)
-    total_speed_m_s = total_speed / PIXELS_PER_METER
-    speed_value_text = small_font.render(f"v: {total_speed_m_s:.2f} m/s", True, (255, 255, 255))
-    # Posiciona a velocidade no lado direito da parte inferior do painel
+    speed_value_text = small_font.render(f"v: { (math.sqrt(foguete.velocidade[0]**2 + foguete.velocidade[1]**2)) / PIXELS_PER_METER:.2f} m/s", True, (255, 255, 255))
     speed_value_rect = speed_value_text.get_rect(center=(hud_panel_rect.centerx + 100, hud_panel_rect.bottom - 20))
     screen.blit(speed_value_text, speed_value_rect)
     
@@ -269,14 +268,10 @@ while running:
     screen.blit(speed_label, speed_label_rect)
     
     # 3. Orientation (Seta de orientação fixa) com rótulo acima
-
     ORIENTATION_ARROW_LENGTH = 80
-
     rad = math.radians(foguete.orientacao)
-
     dir_x = math.cos(rad)
     dir_y = -math.sin(rad)
-
     half_length = ORIENTATION_ARROW_LENGTH / 2
     orientation_start = (ORIENTATION_GROUP_CENTER[0] - half_length * dir_x,
                            ORIENTATION_GROUP_CENTER[1] - half_length * dir_y)
@@ -286,6 +281,12 @@ while running:
     orientation_label = small_font.render("Orientation", True, (255, 255, 255))
     orientation_label_rect = orientation_label.get_rect(center=(ORIENTATION_GROUP_CENTER[0], ORIENTATION_GROUP_CENTER[1] - 65))
     screen.blit(orientation_label, orientation_label_rect)
+    
+    # Se o foguete pousou com sucesso na plataforma de pouso, exibe mensagem de vitória
+    if win == 1:
+        landed_text = small_font.render("Houston, we Landed.", True, (0, 255, 0))
+        landed_rect = landed_text.get_rect(center=(WIDTH//2, HEIGHT//2))
+        screen.blit(landed_text, landed_rect)
     
     pygame.display.flip()
 
