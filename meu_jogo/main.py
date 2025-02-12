@@ -1,4 +1,4 @@
-import pygame # type: ignore
+import pygame
 import math
 from src.entities.rocket import Rocket
 from src.entities.platform import Platform
@@ -10,6 +10,10 @@ FPS = 60
 pygame.init()
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 clock = pygame.time.Clock()
+
+# Carrega e redimensiona a imagem de fundo
+background = pygame.image.load("meu_jogo/src/images/Fundo.png").convert()
+background = pygame.transform.scale(background, (WIDTH, HEIGHT))
 
 # Fontes
 splash_font = pygame.font.SysFont(None, 100)
@@ -26,13 +30,15 @@ ARROW_HEAD_LENGTH = 10
 ARROW_HEAD_ANGLE = 30      # em graus
 MIN_VELOCITY_DISPLAY = 5   # Se a velocidade for menor que esse valor, a seta não é desenhada
 MAX_ARROW_LENGTH = 100     # Tamanho máximo da seta
-BLINK_INTERVAL = 0.3       # Intervalo para o piscar da seta (em segundos)
-# As setinhas serão desenhadas no canto superior direito com folga
+BLINK_INTERVAL = 0.3       # Intervalo para o piscar da seta (em segundos) - mais rápido
+# As setas serão desenhadas no canto superior direito com uma folga adequada
 HUD_ARROW_ORIGIN = (WIDTH - 150, 150)
 blink_timer = 0
 
 def draw_arrow(surface, color, start, end, head_length=ARROW_HEAD_LENGTH, head_angle=ARROW_HEAD_ANGLE):
-    """Desenha uma seta com cabeça, dada a cor, ponto de início e fim."""
+    """
+    Desenha uma seta com cabeça, dada a cor, ponto de início e fim.
+    """
     pygame.draw.line(surface, color, start, end, 3)
     dx = end[0] - start[0]
     dy = end[1] - start[1]
@@ -57,20 +63,30 @@ landing_platform = Platform(posicao_x=landing_platform_x, comprimento=landing_pl
 # Definições do foguete (iniciado centralizado na plataforma inicial)
 rocket_width, rocket_height = 20, 40
 rocket_initial_x = initial_platform.posicao[0] + initial_platform.comprimento / 2
-rocket_initial_y = rocket_height / 2  # O centro de massa inicia em rocket_height/2 (sobre o chão)
+rocket_initial_y = rocket_height / 2  # O centro de massa inicia em rocket_height/2 (para ficar "sobre" o chão)
 foguete = Rocket(posicao_x=rocket_initial_x, posicao_y=rocket_initial_y, massa=50)
 
 # Flag para indicar se o foguete explodiu (crashed)
 crashed = False
 
 def draw_rocket(surface, rocket):
-    """Desenha o foguete, rotacionando a imagem de acordo com rocket.orientacao."""
+    """
+    Desenha o foguete.
+    
+    A imagem é rotacionada de forma que:
+      - Quando rocket.orientacao == 90, o foguete aparece "de pé" (apontando para cima);
+      - Valores maiores que 90 resultam em rotação antihorária (inclinação para a esquerda);
+      - Valores menores que 90 resultam em rotação horária (inclinação para a direita).
+    """
     rocket_surf = pygame.Surface((rocket_width, rocket_height), pygame.SRCALPHA)
+    # Corpo do foguete: retângulo, nariz triangular e aletas
     body_rect = pygame.Rect(0, 10, rocket_width, rocket_height - 10)
     pygame.draw.rect(rocket_surf, (200, 0, 0), body_rect)
     pygame.draw.polygon(rocket_surf, (255, 0, 0), [(0, 10), (rocket_width, 10), (rocket_width/2, 0)])
     pygame.draw.polygon(rocket_surf, (150, 150, 150), [(0, rocket_height), (5, rocket_height - 10), (0, rocket_height - 10)])
     pygame.draw.polygon(rocket_surf, (150, 150, 150), [(rocket_width, rocket_height), (rocket_width - 5, rocket_height - 10), (rocket_width, rocket_height - 10)])
+    
+    # Rotaciona a imagem usando a rotação direta (quando rocket.orientacao == 90, não há rotação)
     rotated_surf = pygame.transform.rotate(rocket_surf, (rocket.orientacao - 90))
     rotated_rect = rotated_surf.get_rect(center=(int(rocket.posicao[0]), HEIGHT - int(rocket.posicao[1])))
     surface.blit(rotated_surf, rotated_rect.topleft)
@@ -86,7 +102,6 @@ while running:
     if blink_timer >= BLINK_INTERVAL:
         blink_timer = 0
 
-    # Processa eventos
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
@@ -96,8 +111,8 @@ while running:
             if game_state == "waiting" and event.key == pygame.K_SPACE:
                 game_state = "play"
 
-    # Limpa a tela
-    screen.fill((0, 0, 30))
+    # Em vez de preencher com uma cor, desenha o fundo
+    screen.blit(background, (0, 0))
     
     # Exibe a versão e a mensagem de quit no canto superior esquerdo
     version_surface = small_font.render(version_text, True, (255, 255, 255))
@@ -119,9 +134,8 @@ while running:
             waiting_rect = waiting_text.get_rect(center=(WIDTH // 2, HEIGHT // 2))
             screen.blit(waiting_text, waiting_rect)
         pygame.display.flip()
-        continue  # Pula o restante do loop até o jogo iniciar
+        continue
 
-    # Se o jogo está em "play", processa controles, física e desenho do jogo
     keys = pygame.key.get_pressed()
     if keys[pygame.K_r]:
         foguete.reset()
