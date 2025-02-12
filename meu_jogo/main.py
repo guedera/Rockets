@@ -1,3 +1,4 @@
+import sys
 import pygame
 import math
 from src.entities.rocket import Rocket
@@ -120,7 +121,10 @@ while running:
             running = False
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
+                # Quando ESC é pressionado, encerra o jogo de forma amigável
                 running = False
+                pygame.quit()
+                sys.exit()
             if game_state == "waiting" and event.key == pygame.K_SPACE:
                 game_state = "play"
 
@@ -196,9 +200,7 @@ while running:
     
     # --- HUD PANEL: Desenha o painel do HUD com fundo levemente transparente e bordas arredondadas ---
     hud_surface = pygame.Surface((hud_panel_rect.width, hud_panel_rect.height), pygame.SRCALPHA)
-    # Desenha um retângulo arredondado preenchido com preto (alpha 150)
     pygame.draw.rect(hud_surface, HUD_BG_COLOR, hud_surface.get_rect(), border_radius=HUD_BORDER_RADIUS)
-    # Desenha a borda arredondada do painel
     pygame.draw.rect(hud_surface, HUD_BORDER_COLOR, hud_surface.get_rect(), 2, border_radius=HUD_BORDER_RADIUS)
     screen.blit(hud_surface, hud_panel_rect.topleft)
     
