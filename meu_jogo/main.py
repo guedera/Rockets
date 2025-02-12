@@ -21,18 +21,16 @@ small_font = pygame.font.SysFont(None, 24)
 crash_font = pygame.font.SysFont(None, 72)
 
 # Informações de versão e quit (HUD no canto superior esquerdo)
-version_text = "0.6.4"
+version_text = "0.7.0"
 quit_text = "Press ESC to quit"
 
-# Constantes para as setinhas do HUD (velocidade)
+# Constantes para as setinhas do HUD (usadas para Speed e Orientation)
 ARROW_SCALE = 0.2        # Fator de escala para converter velocidade em comprimento
 ARROW_HEAD_LENGTH = 10
 ARROW_HEAD_ANGLE = 30      # em graus
 MIN_VELOCITY_DISPLAY = 5   # Se a velocidade for menor que esse valor, a seta não é desenhada
 MAX_ARROW_LENGTH = 100     # Tamanho máximo da seta
-BLINK_INTERVAL = 0.3       # Intervalo para o piscar da seta (em segundos) - mais rápido
-# As setas serão desenhadas no canto superior direito com uma folga adequada
-HUD_ARROW_ORIGIN = (WIDTH - 150, 150)
+BLINK_INTERVAL = 0.3       # Intervalo para o piscar da seta (em segundos)
 blink_timer = 0
 
 def draw_arrow(surface, color, start, end, head_length=ARROW_HEAD_LENGTH, head_angle=ARROW_HEAD_ANGLE):
@@ -50,6 +48,21 @@ def draw_arrow(surface, color, start, end, head_length=ARROW_HEAD_LENGTH, head_a
     x2 = end[0] - head_length * math.cos(angle2)
     y2 = end[1] - head_length * math.sin(angle2)
     pygame.draw.polygon(surface, color, [end, (x1, y1), (x2, y2)])
+
+# --- HUD PANEL: define o retângulo do HUD ---
+hud_panel_rect = pygame.Rect(WIDTH//2 - 300, HEIGHT - 220, 600, 200)
+HUD_BG_COLOR = (0, 0, 0, 150)         # Preto com alpha 150 (leve transparência)
+HUD_BORDER_COLOR = (200, 200, 200)      # Borda cinza claro
+HUD_BORDER_RADIUS = 15                # Raio para cantos arredondados
+
+# --- HUD GRUPO: posições para os três itens ---
+# O painel HUD estará centralizado na parte inferior
+hud_center = hud_panel_rect.center
+THRUST_GROUP_CENTER = (hud_center[0] - 150, hud_panel_rect.centery + 20)
+SPEED_GROUP_CENTER  = (hud_center[0], hud_panel_rect.centery + 20)
+ORIENTATION_GROUP_CENTER = (hud_center[0] + 150, hud_panel_rect.centery + 20)
+# Posição do texto de posição (na parte superior do painel)
+POSITION_TEXT_CENTER = (hud_panel_rect.centerx, hud_panel_rect.top + 20)
 
 # Criação das plataformas
 initial_platform_width = 200
@@ -79,19 +92,19 @@ def draw_rocket(surface, rocket):
       - Valores menores que 90 resultam em rotação horária (inclinação para a direita).
     """
     rocket_surf = pygame.Surface((rocket_width, rocket_height), pygame.SRCALPHA)
-    # Corpo do foguete: retângulo, nariz triangular e aletas
     body_rect = pygame.Rect(0, 10, rocket_width, rocket_height - 10)
     pygame.draw.rect(rocket_surf, (200, 0, 0), body_rect)
     pygame.draw.polygon(rocket_surf, (255, 0, 0), [(0, 10), (rocket_width, 10), (rocket_width/2, 0)])
     pygame.draw.polygon(rocket_surf, (150, 150, 150), [(0, rocket_height), (5, rocket_height - 10), (0, rocket_height - 10)])
     pygame.draw.polygon(rocket_surf, (150, 150, 150), [(rocket_width, rocket_height), (rocket_width - 5, rocket_height - 10), (rocket_width, rocket_height - 10)])
-    
-    # Rotaciona a imagem usando a rotação direta (quando rocket.orientacao == 90, não há rotação)
     rotated_surf = pygame.transform.rotate(rocket_surf, (rocket.orientacao - 90))
     rotated_rect = rotated_surf.get_rect(center=(int(rocket.posicao[0]), HEIGHT - int(rocket.posicao[1])))
     surface.blit(rotated_surf, rotated_rect.topleft)
 
-# Estados do jogo: "intro" (primeiros 5 segundos), "waiting" (após 5s, espera Space) e "play"
+# Constante de conversão: quantos pixels equivalem a 1 metro
+PIXELS_PER_METER = 100
+
+# Estados do jogo: "intro", "waiting", "play"
 game_state = "intro"
 intro_timer = 0.0
 
@@ -111,7 +124,7 @@ while running:
             if game_state == "waiting" and event.key == pygame.K_SPACE:
                 game_state = "play"
 
-    # Em vez de preencher com uma cor, desenha o fundo
+    # Desenha o fundo (imagem)
     screen.blit(background, (0, 0))
     
     # Exibe a versão e a mensagem de quit no canto superior esquerdo
@@ -120,7 +133,7 @@ while running:
     screen.blit(version_surface, (10, 10))
     screen.blit(quit_surface, (10, 30))
     
-    # Se o jogo ainda não começou ("intro" ou "waiting"), exibe a tela de início
+    # Tela de início
     if game_state != "play":
         if game_state == "intro":
             intro_timer += delta_time
@@ -136,6 +149,7 @@ while running:
         pygame.display.flip()
         continue
 
+    # Jogo em execução ("play")
     keys = pygame.key.get_pressed()
     if keys[pygame.K_r]:
         foguete.reset()
@@ -180,35 +194,74 @@ while running:
         crash_rect = crash_text.get_rect(center=(WIDTH // 2, HEIGHT // 2))
         screen.blit(crash_text, crash_rect)
     
-    # Desenha a barra de potência (lado direito) com moldura
-    bar_x, bar_y, bar_width, bar_height = WIDTH - 40, HEIGHT - 150, 20, 100
-    pygame.draw.rect(screen, (50, 50, 50), (bar_x, bar_y, bar_width, bar_height))
-    filled_height = (foguete.potencia_motor / 100.0) * bar_height
-    pygame.draw.rect(screen, (0, 255, 0), (bar_x, bar_y + (bar_height - filled_height), bar_width, filled_height))
-    pygame.draw.rect(screen, (255, 255, 255), (bar_x, bar_y, bar_width, bar_height), 2)
+    # --- HUD PANEL: Desenha o painel do HUD com fundo levemente transparente e bordas arredondadas ---
+    hud_surface = pygame.Surface((hud_panel_rect.width, hud_panel_rect.height), pygame.SRCALPHA)
+    # Desenha um retângulo arredondado preenchido com preto (alpha 150)
+    pygame.draw.rect(hud_surface, HUD_BG_COLOR, hud_surface.get_rect(), border_radius=HUD_BORDER_RADIUS)
+    # Desenha a borda arredondada do painel
+    pygame.draw.rect(hud_surface, HUD_BORDER_COLOR, hud_surface.get_rect(), 2, border_radius=HUD_BORDER_RADIUS)
+    screen.blit(hud_surface, hud_panel_rect.topleft)
     
-    # --- HUD: Desenha as setinhas de velocidade no canto superior direito ---
-    vel_x = foguete.velocidade[0]
-    if abs(vel_x) >= MIN_VELOCITY_DISPLAY:
-        arrow_length_x = abs(vel_x) * ARROW_SCALE
+    # --- HUD: Exibe a posição (x:y) em metros relativa à posição inicial ---
+    dx_pixels = foguete.posicao[0] - rocket_initial_x
+    dy_pixels = foguete.posicao[1] - rocket_initial_y
+    pos_x_m = dx_pixels / PIXELS_PER_METER
+    pos_y_m = dy_pixels / PIXELS_PER_METER
+    position_text = small_font.render(f"Pos: {pos_x_m:.2f}:{pos_y_m:.2f} m", True, (255, 255, 255))
+    position_text_rect = position_text.get_rect(center=(hud_panel_rect.centerx, hud_panel_rect.top + 20))
+    screen.blit(position_text, position_text_rect)
+    
+    # --- HUD: Grupo de indicadores no painel ---
+    # 1. Thrust (Barra de potência) com rótulo acima
+    thrust_bar_width = 20
+    thrust_bar_height = 100
+    thrust_bar_x = THRUST_GROUP_CENTER[0] - thrust_bar_width // 2
+    thrust_bar_y = THRUST_GROUP_CENTER[1] - thrust_bar_height // 2
+    pygame.draw.rect(screen, (50, 50, 50), (thrust_bar_x, thrust_bar_y, thrust_bar_width, thrust_bar_height))
+    filled_height = (foguete.potencia_motor / 100.0) * thrust_bar_height
+    pygame.draw.rect(screen, (0, 255, 0), (thrust_bar_x, thrust_bar_y + (thrust_bar_height - filled_height), thrust_bar_width, filled_height))
+    pygame.draw.rect(screen, (255, 255, 255), (thrust_bar_x, thrust_bar_y, thrust_bar_width, thrust_bar_height), 2)
+    thrust_label = small_font.render("Thrust", True, (255, 255, 255))
+    thrust_label_rect = thrust_label.get_rect(center=(THRUST_GROUP_CENTER[0], thrust_bar_y - 15))
+    screen.blit(thrust_label, thrust_label_rect)
+    
+    # 2. Speed (Setas de velocidade) com rótulo acima
+    if abs(foguete.velocidade[0]) >= MIN_VELOCITY_DISPLAY:
+        arrow_length_x = abs(foguete.velocidade[0]) * ARROW_SCALE
         blinking_x = False
         if arrow_length_x > MAX_ARROW_LENGTH:
             arrow_length_x = MAX_ARROW_LENGTH
             blinking_x = True
         if not blinking_x or (blinking_x and blink_timer < BLINK_INTERVAL / 2):
-            red_end = (HUD_ARROW_ORIGIN[0] + math.copysign(arrow_length_x, vel_x), HUD_ARROW_ORIGIN[1])
-            draw_arrow(screen, (255, 0, 0), HUD_ARROW_ORIGIN, red_end)
-    
-    vel_y = foguete.velocidade[1]
-    if abs(vel_y) >= MIN_VELOCITY_DISPLAY:
-        arrow_length_y = abs(vel_y) * ARROW_SCALE
+            speed_red_end = (SPEED_GROUP_CENTER[0] + math.copysign(arrow_length_x, foguete.velocidade[0]), SPEED_GROUP_CENTER[1])
+            draw_arrow(screen, (255, 0, 0), SPEED_GROUP_CENTER, speed_red_end)
+    if abs(foguete.velocidade[1]) >= MIN_VELOCITY_DISPLAY:
+        arrow_length_y = abs(foguete.velocidade[1]) * ARROW_SCALE
         blinking_y = False
         if arrow_length_y > MAX_ARROW_LENGTH:
             arrow_length_y = MAX_ARROW_LENGTH
             blinking_y = True
         if not blinking_y or (blinking_y and blink_timer < BLINK_INTERVAL / 2):
-            blue_end = (HUD_ARROW_ORIGIN[0], HUD_ARROW_ORIGIN[1] - math.copysign(arrow_length_y, vel_y))
-            draw_arrow(screen, (0, 0, 255), HUD_ARROW_ORIGIN, blue_end)
+            speed_blue_end = (SPEED_GROUP_CENTER[0], SPEED_GROUP_CENTER[1] - math.copysign(arrow_length_y, foguete.velocidade[1]))
+            draw_arrow(screen, (0, 0, 255), SPEED_GROUP_CENTER, speed_blue_end)
+    speed_label = small_font.render("Speed", True, (255, 255, 255))
+    speed_label_rect = speed_label.get_rect(center=(SPEED_GROUP_CENTER[0], SPEED_GROUP_CENTER[1] - 65))
+    screen.blit(speed_label, speed_label_rect)
+    
+    # 3. Orientation (Seta de orientação fixa) com rótulo acima
+    ORIENTATION_ARROW_LENGTH = 80
+    rad = math.radians(foguete.orientacao)
+    dir_x = math.cos(rad)
+    dir_y = -math.sin(rad)
+    half_length = ORIENTATION_ARROW_LENGTH / 2
+    orientation_start = (ORIENTATION_GROUP_CENTER[0] - half_length * dir_x,
+                           ORIENTATION_GROUP_CENTER[1] - half_length * dir_y)
+    orientation_end = (ORIENTATION_GROUP_CENTER[0] + half_length * dir_x,
+                         ORIENTATION_GROUP_CENTER[1] + half_length * dir_y)
+    draw_arrow(screen, (255, 255, 0), orientation_start, orientation_end)
+    orientation_label = small_font.render("Orientation", True, (255, 255, 255))
+    orientation_label_rect = orientation_label.get_rect(center=(ORIENTATION_GROUP_CENTER[0], ORIENTATION_GROUP_CENTER[1] - 65))
+    screen.blit(orientation_label, orientation_label_rect)
     
     pygame.display.flip()
 
