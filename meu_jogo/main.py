@@ -1,4 +1,4 @@
-import pygame
+import pygame # type: ignore
 import math
 from src.entities.rocket import Rocket
 from src.entities.platform import Platform
