@@ -25,16 +25,19 @@ crash_font = pygame.font.Font("meu_jogo/src/utils/JetBrainsMono-Regular.ttf", 48
 version_text = "0.7.5"
 quit_text = "Press ESC to quit"
 
-# Constantes para as setinhas do HUD (Speed e Orientation)
-ARROW_SCALE = 0.2
+# Constantes para as setinhas do HUD (usadas para Speed e Orientation)
+ARROW_SCALE = 0.2        # Fator de escala para converter velocidade em comprimento
 ARROW_HEAD_LENGTH = 10
-ARROW_HEAD_ANGLE = 30
-MIN_VELOCITY_DISPLAY = 5
-MAX_ARROW_LENGTH = 100
-BLINK_INTERVAL = 0.3
+ARROW_HEAD_ANGLE = 30      # em graus
+MIN_VELOCITY_DISPLAY = 5   # Se a velocidade for menor que esse valor, a seta não é desenhada
+MAX_ARROW_LENGTH = 100     # Tamanho máximo da seta
+BLINK_INTERVAL = 0.3       # Intervalo para o piscar da seta (em segundos)
 blink_timer = 0
 
 def draw_arrow(surface, color, start, end, head_length=ARROW_HEAD_LENGTH, head_angle=ARROW_HEAD_ANGLE):
+    """
+    Desenha uma seta com cabeça, dada a cor, ponto de início e fim.
+    """
     pygame.draw.line(surface, color, start, end, 3)
     dx = end[0] - start[0]
     dy = end[1] - start[1]
@@ -47,18 +50,22 @@ def draw_arrow(surface, color, start, end, head_length=ARROW_HEAD_LENGTH, head_a
     y2 = end[1] - head_length * math.sin(angle2)
     pygame.draw.polygon(surface, color, [end, (x1, y1), (x2, y2)])
 
-# --- HUD PANEL ---
+# --- HUD PANEL: define o retângulo do HUD ---
 hud_panel_rect = pygame.Rect(WIDTH//2 - 300, HEIGHT - 220, 600, 200)
-HUD_BG_COLOR = (0, 0, 0, 150)  # Preto com alpha 150
-HUD_BORDER_COLOR = (200, 200, 200)
-HUD_BORDER_RADIUS = 15
+HUD_BG_COLOR = (0, 0, 0, 150)         # Fundo preto com transparência (alpha 150)
+HUD_BORDER_COLOR = (200, 200, 200)      # Borda cinza claro
+HUD_BORDER_RADIUS = 15                # Raio para cantos arredondados
 
-# --- HUD GRUPO: posições para os três itens ---
+# --- HUD GRUPO: posições para os itens do painel ---
 hud_center = hud_panel_rect.center
 THRUST_GROUP_CENTER = (hud_center[0] - 150, hud_panel_rect.centery + 20)
 SPEED_GROUP_CENTER  = (hud_center[0], hud_panel_rect.centery + 20)
 ORIENTATION_GROUP_CENTER = (hud_center[0] + 150, hud_panel_rect.centery + 20)
-POSITION_TEXT_CENTER = (hud_panel_rect.centerx, hud_panel_rect.top + 20)
+# Posição do texto de posição (um pouco mais acima dentro do painel)
+POSITION_TEXT_CENTER = (hud_panel_rect.centerx, hud_panel_rect.top + 15)
+
+# Constante para velocidade de pouso segura (em pixels/segundo)
+LANDING_SPEED_THRESHOLD = 50
 
 # Criação das plataformas
 initial_platform_width = 200
@@ -69,16 +76,19 @@ landing_platform_width = 200
 landing_platform_x = WIDTH - landing_platform_width - 100
 landing_platform = Platform(posicao_x=landing_platform_x, comprimento=landing_platform_width, altura=0)
 
-# Foguete
+# Definições do foguete (iniciado na plataforma inicial)
 rocket_width, rocket_height = 20, 40
 rocket_initial_x = initial_platform.posicao[0] + initial_platform.comprimento / 2
 rocket_initial_y = rocket_height / 2
 foguete = Rocket(posicao_x=rocket_initial_x, posicao_y=rocket_initial_y, massa=50)
 
-# Combustível gasto
+# Constante de conversão: quantos pixels equivalem a 1 metro
+PIXELS_PER_METER = 100
+
+# Nova variável para contabilizar o combustível gasto
 fuel_consumed = 0.0
 
-# Estado do jogo
+# Estados do jogo: "intro", "waiting", "play"
 game_state = "intro"
 intro_timer = 0.0
 
@@ -86,6 +96,9 @@ intro_timer = 0.0
 crashed = False
 
 def draw_rocket(surface, rocket):
+    """
+    Desenha o foguete, rotacionado conforme rocket.orientacao.
+    """
     rocket_surf = pygame.Surface((rocket_width, rocket_height), pygame.SRCALPHA)
     body_rect = pygame.Rect(0, 10, rocket_width, rocket_height - 10)
     pygame.draw.rect(rocket_surf, (200, 0, 0), body_rect)
@@ -96,8 +109,6 @@ def draw_rocket(surface, rocket):
     rotated_rect = rotated_surf.get_rect(center=(int(rocket.posicao[0]), HEIGHT - int(rocket.posicao[1])))
     surface.blit(rotated_surf, rotated_rect.topleft)
 
-PIXELS_PER_METER = 100
-
 running = True
 while running:
     delta_time = clock.tick(FPS) / 1000.0
@@ -107,7 +118,8 @@ while running:
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
-            running = False
+            pygame.quit()
+            sys.exit()
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
                 pygame.quit()
@@ -160,18 +172,23 @@ while running:
         foguete.atualizar(delta_time)
         rocket_half_height = rocket_height / 2
         if foguete.posicao[1] <= rocket_half_height and foguete.velocidade[1] <= 0:
+            # Verifica velocidade resultante no momento do pouso
+            landing_speed = math.sqrt(foguete.velocidade[0]**2 + foguete.velocidade[1]**2)
             on_initial = (initial_platform.posicao[0] <= foguete.posicao[0] <= initial_platform.posicao[0] + initial_platform.comprimento)
             on_landing = (landing_platform.posicao[0] <= foguete.posicao[0] <= landing_platform.posicao[0] + landing_platform.comprimento)
-            if not (on_initial or on_landing):
+            if landing_speed > LANDING_SPEED_THRESHOLD:
                 crashed = True
             else:
-                foguete.posicao[1] = rocket_half_height
-                if foguete.potencia_motor == 0:
-                    foguete.velocidade = [0, 0]
-                    foguete.angular_velocity = 0
+                if on_initial or on_landing:
+                    foguete.posicao[1] = rocket_half_height
+                    if foguete.potencia_motor == 0:
+                        foguete.velocidade = [0, 0]
+                        foguete.angular_velocity = 0
+                    else:
+                        foguete.velocidade[1] = 0
+                        foguete.angular_velocity = 0
                 else:
-                    foguete.velocidade[1] = 0
-                    foguete.angular_velocity = 0
+                    crashed = True
 
     initial_platform_rect = pygame.Rect(initial_platform.posicao[0], HEIGHT - 10, initial_platform.comprimento, 10)
     pygame.draw.rect(screen, (100, 100, 100), initial_platform_rect)
@@ -185,23 +202,34 @@ while running:
         crash_rect = crash_text.get_rect(center=(WIDTH // 2, HEIGHT // 2))
         screen.blit(crash_text, crash_rect)
     
-    # --- HUD PANEL: Desenha o painel do HUD com fundo transparente e cantos arredondados ---
+    # --- HUD PANEL: Desenha o painel do HUD com fundo transparente e bordas arredondadas ---
     hud_surface = pygame.Surface((hud_panel_rect.width, hud_panel_rect.height), pygame.SRCALPHA)
     pygame.draw.rect(hud_surface, HUD_BG_COLOR, hud_surface.get_rect(), border_radius=HUD_BORDER_RADIUS)
     pygame.draw.rect(hud_surface, HUD_BORDER_COLOR, hud_surface.get_rect(), 2, border_radius=HUD_BORDER_RADIUS)
     screen.blit(hud_surface, hud_panel_rect.topleft)
     
+    # --- HUD: Exibe a posição (x:y) em metros relativa à posição inicial ---
     dx_pixels = foguete.posicao[0] - rocket_initial_x
     dy_pixels = foguete.posicao[1] - rocket_initial_y
     pos_x_m = dx_pixels / PIXELS_PER_METER
     pos_y_m = dy_pixels / PIXELS_PER_METER
     position_text = small_font.render(f"Pos: {pos_x_m:.2f}:{pos_y_m:.2f} m", True, (255, 255, 255))
-    position_text_rect = position_text.get_rect(center=(hud_panel_rect.centerx, hud_panel_rect.top + 20))
+    position_text_rect = position_text.get_rect(center=(hud_panel_rect.centerx, hud_panel_rect.top + 15))
     screen.blit(position_text, position_text_rect)
     
+    # --- HUD: Exibe o combustível gasto ---
     fuel_text = small_font.render(f"Fuel: {fuel_consumed:.2f}", True, (255, 255, 255))
-    fuel_text_rect = fuel_text.get_rect(center=(hud_panel_rect.centerx, hud_panel_rect.bottom - 20))
+    # Posiciona o Fuel no lado esquerdo da parte inferior do painel
+    fuel_text_rect = fuel_text.get_rect(center=(hud_panel_rect.centerx - 100, hud_panel_rect.bottom - 20))
     screen.blit(fuel_text, fuel_text_rect)
+    
+    # --- HUD: Exibe a velocidade resultante ---
+    total_speed = math.sqrt(foguete.velocidade[0]**2 + foguete.velocidade[1]**2)
+    total_speed_m_s = total_speed / PIXELS_PER_METER
+    speed_value_text = small_font.render(f"v: {total_speed_m_s:.2f} m/s", True, (255, 255, 255))
+    # Posiciona a velocidade no lado direito da parte inferior do painel
+    speed_value_rect = speed_value_text.get_rect(center=(hud_panel_rect.centerx + 100, hud_panel_rect.bottom - 20))
+    screen.blit(speed_value_text, speed_value_rect)
     
     # --- HUD: Grupo de indicadores no painel ---
     # 1. Thrust (Barra de potência) com rótulo acima
@@ -241,10 +269,14 @@ while running:
     screen.blit(speed_label, speed_label_rect)
     
     # 3. Orientation (Seta de orientação fixa) com rótulo acima
+
     ORIENTATION_ARROW_LENGTH = 80
+
     rad = math.radians(foguete.orientacao)
+
     dir_x = math.cos(rad)
     dir_y = -math.sin(rad)
+
     half_length = ORIENTATION_ARROW_LENGTH / 2
     orientation_start = (ORIENTATION_GROUP_CENTER[0] - half_length * dir_x,
                            ORIENTATION_GROUP_CENTER[1] - half_length * dir_y)
