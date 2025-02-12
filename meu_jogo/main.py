@@ -4,27 +4,36 @@ from src.entities.rocket import Rocket
 from src.entities.platform import Platform
 
 # Configurações da tela e da simulação
-WIDTH, HEIGHT = 800, 600
+WIDTH, HEIGHT = 1600, 900
 FPS = 60
 
 pygame.init()
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 clock = pygame.time.Clock()
 
-# Criação da plataforma (chão)
-platform_width = 200
-platform = Platform(posicao_x=(WIDTH - platform_width) // 2, comprimento=platform_width, altura=0)
+# Criação das plataformas
+
+# Plataforma inicial (à esquerda, onde o foguete inicia)
+initial_platform_width = 200
+initial_platform_x = 100  # margem esquerda de 100 pixels
+initial_platform = Platform(posicao_x=initial_platform_x, comprimento=initial_platform_width, altura=0)
+
+# Plataforma de pouso (à direita)
+landing_platform_width = 200
+landing_platform_x = WIDTH - landing_platform_width - 100  # margem direita de 100 pixels
+landing_platform = Platform(posicao_x=landing_platform_x, comprimento=landing_platform_width, altura=0)
 
 # Definições do foguete
 rocket_width, rocket_height = 20, 40
-rocket_initial_x = platform.posicao[0] + platform.comprimento / 2
-rocket_initial_y = rocket_height / 2  # O centro de massa inicia em rocket_height/2
+# O foguete inicia centralizado na plataforma inicial
+rocket_initial_x = initial_platform.posicao[0] + initial_platform.comprimento / 2
+rocket_initial_y = rocket_height / 2  # O centro de massa inicia em rocket_height/2 (para ficar "sobre" o chão)
 foguete = Rocket(posicao_x=rocket_initial_x, posicao_y=rocket_initial_y, massa=50)
 
 def draw_rocket(surface, rocket):
     """
     Desenha o foguete.
-    
+
     A imagem é rotacionada de forma que:
       - Quando rocket.orientacao == 90, o foguete aparece "de pé" (apontando para cima);
       - Valores maiores que 90 resultam em uma rotação antihorária (inclinação para a esquerda);
@@ -79,11 +88,17 @@ while running:
         foguete.angular_velocity = 0
 
     screen.fill((0, 0, 30))
-    # Desenha a plataforma (chão)
-    platform_rect = pygame.Rect(platform.posicao[0], HEIGHT - 10, platform.comprimento, 10)
-    pygame.draw.rect(screen, (100, 100, 100), platform_rect)
+    # Desenha as plataformas
+    # Plataforma inicial
+    initial_platform_rect = pygame.Rect(initial_platform.posicao[0], HEIGHT - 10, initial_platform.comprimento, 10)
+    pygame.draw.rect(screen, (100, 100, 100), initial_platform_rect)
+    # Plataforma de pouso
+    landing_platform_rect = pygame.Rect(landing_platform.posicao[0], HEIGHT - 10, landing_platform.comprimento, 10)
+    pygame.draw.rect(screen, (100, 100, 100), landing_platform_rect)
+    
     # Desenha o foguete
     draw_rocket(screen, foguete)
+    
     # Desenha a barra de potência (lado direito) com moldura
     bar_x, bar_y, bar_width, bar_height = WIDTH - 40, HEIGHT - 150, 20, 100
     pygame.draw.rect(screen, (50, 50, 50), (bar_x, bar_y, bar_width, bar_height))

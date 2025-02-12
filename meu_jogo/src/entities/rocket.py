@@ -4,7 +4,8 @@ class Rocket:
     GRAVIDADE = 500.0            # pixels/s² (para a simulação)
     POTENCIA_INCREMENTO = 1      # Incremento da potência por comando (1% por tecla)
     MAX_THRUST = 30000           # Empuxo máximo (N) para potência de 100%
-    ROTATION_TORQUE = 1000.0     # Torque aplicado quando se pressiona A ou D (unidade arbitrária)
+    ROTATION_TORQUE = 3000.0     # Torque aplicado quando se pressiona A ou D (unidade arbitrária)
+    DRAG_COEFFICIENT = 10.0      # Coeficiente de arrasto (força de drag = -DRAG_COEFFICIENT * v)
 
     def __init__(self, posicao_x: float, posicao_y: float, massa: float):
         """
@@ -36,19 +37,31 @@ class Rocket:
 
     def aplicar_forca(self, delta_time):
         """
-        Aplica a força do motor (sempre ao longo do eixo do foguete) e a gravidade.
+        Aplica a força do motor (sempre ao longo do eixo do foguete), a gravidade
+        e a força de arrasto (drag) que se opõe à velocidade.
 
         :param delta_time: tempo decorrido (s)
         """
-        # A força do motor é proporcional à potência e age na direção de self.orientacao
+        # Força de empuxo do motor
         thrust = (self.potencia_motor / 100.0) * self.MAX_THRUST
         total_angle_rad = math.radians(self.orientacao)
-        force_x = thrust * math.cos(total_angle_rad)
-        force_y = thrust * math.sin(total_angle_rad) - self.massa * self.GRAVIDADE
+        thrust_force_x = thrust * math.cos(total_angle_rad)
+        thrust_force_y = thrust * math.sin(total_angle_rad)
+        
+        # Força gravitacional
+        gravity_force = self.massa * self.GRAVIDADE
 
-        # Atualiza a velocidade linear
-        ax = force_x / self.massa
-        ay = force_y / self.massa
+        # Força de arrasto (drag) - atua em ambos os eixos, oposta à velocidade
+        drag_force_x = - self.DRAG_COEFFICIENT * self.velocidade[0]
+        drag_force_y = - self.DRAG_COEFFICIENT * self.velocidade[1]
+
+        # Soma das forças: empuxo, gravidade (apenas no eixo y) e drag
+        net_force_x = thrust_force_x + drag_force_x
+        net_force_y = thrust_force_y + drag_force_y - gravity_force
+
+        # Atualiza a velocidade linear com base na aceleração resultante
+        ax = net_force_x / self.massa
+        ay = net_force_y / self.massa
         self.velocidade[0] += ax * delta_time
         self.velocidade[1] += ay * delta_time
 
