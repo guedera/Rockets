@@ -11,6 +11,9 @@ pygame.init()
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 clock = pygame.time.Clock()
 
+# Fonte para a mensagem de crash
+font = pygame.font.SysFont(None, 72)
+
 # Criação das plataformas
 
 # Plataforma inicial (à esquerda, onde o foguete inicia)
@@ -30,10 +33,13 @@ rocket_initial_x = initial_platform.posicao[0] + initial_platform.comprimento / 
 rocket_initial_y = rocket_height / 2  # O centro de massa inicia em rocket_height/2 (para ficar "sobre" o chão)
 foguete = Rocket(posicao_x=rocket_initial_x, posicao_y=rocket_initial_y, massa=50)
 
+# Flag para indicar se o foguete explodiu (crashed)
+crashed = False
+
 def draw_rocket(surface, rocket):
     """
     Desenha o foguete.
-
+    
     A imagem é rotacionada de forma que:
       - Quando rocket.orientacao == 90, o foguete aparece "de pé" (apontando para cima);
       - Valores maiores que 90 resultam em uma rotação antihorária (inclinação para a esquerda);
@@ -62,42 +68,64 @@ while running:
             running = False
 
     keys = pygame.key.get_pressed()
-    # Controle de potência do motor
-    if keys[pygame.K_w]:
-        foguete.alterar_potencia(Rocket.POTENCIA_INCREMENTO)
-    if keys[pygame.K_s]:
-        foguete.alterar_potencia(-Rocket.POTENCIA_INCREMENTO)
-    # Controle de rotação: A para girar no sentido antihorário, D para girar no sentido horário
-    if keys[pygame.K_a]:
-        foguete.aplicar_torque(+Rocket.ROTATION_TORQUE, delta_time)
-    if keys[pygame.K_d]:
-        foguete.aplicar_torque(-Rocket.ROTATION_TORQUE, delta_time)
-    # Reset do foguete
+    # Reset: se a tecla R for pressionada, o foguete é reiniciado e o flag de crash é limpo
     if keys[pygame.K_r]:
         foguete.reset()
+        crashed = False
 
-    # Atualiza a física do foguete
-    foguete.atualizar(delta_time)
+    # Se não estiver crashado, processa os controles e atualiza a física
+    if not crashed:
+        # Controles de potência do motor
+        if keys[pygame.K_w]:
+            foguete.alterar_potencia(Rocket.POTENCIA_INCREMENTO)
+        if keys[pygame.K_s]:
+            foguete.alterar_potencia(-Rocket.POTENCIA_INCREMENTO)
+        # Controles de rotação: A para girar no sentido antihorário, D para girar no sentido horário
+        if keys[pygame.K_a]:
+            foguete.aplicar_torque(+Rocket.ROTATION_TORQUE, delta_time)
+        if keys[pygame.K_d]:
+            foguete.aplicar_torque(-Rocket.ROTATION_TORQUE, delta_time)
 
-    # Impede que o foguete penetre o chão:
-    # Se o centro de massa estiver abaixo de rocket_height/2 e se movendo para baixo, "prende-o" ao chão.
-    rocket_half_height = rocket_height / 2
-    if foguete.posicao[1] < rocket_half_height and foguete.velocidade[1] <= 0:
-        foguete.posicao[1] = rocket_half_height
-        foguete.velocidade[1] = 0
-        foguete.angular_velocity = 0
+        # Atualiza a física do foguete
+        foguete.atualizar(delta_time)
 
+        # Verifica se o foguete tocou o chão
+        rocket_half_height = rocket_height / 2
+        if foguete.posicao[1] <= rocket_half_height and foguete.velocidade[1] <= 0:
+            # Verifica se o foguete está sobre alguma plataforma
+            on_initial = (initial_platform.posicao[0] <= foguete.posicao[0] <= initial_platform.posicao[0] + initial_platform.comprimento)
+            on_landing = (landing_platform.posicao[0] <= foguete.posicao[0] <= landing_platform.posicao[0] + landing_platform.comprimento)
+            if not (on_initial or on_landing):
+                # Se não estiver sobre nenhuma plataforma, marca como crashado
+                crashed = True
+            else:
+                # Se estiver sobre uma plataforma, mantém o foguete "no chão"
+                foguete.posicao[1] = rocket_half_height
+                if foguete.potencia_motor == 0:
+                    # Se a potência for 0%, zera imediatamente toda a velocidade
+                    foguete.velocidade = [0, 0]
+                    foguete.angular_velocity = 0
+                else:
+                    # Se a potência não for 0, apenas zera a velocidade vertical e a angular.
+                    foguete.velocidade[1] = 0
+                    foguete.angular_velocity = 0
+
+    # Desenha o fundo e os elementos da cena
     screen.fill((0, 0, 30))
+    
     # Desenha as plataformas
-    # Plataforma inicial
     initial_platform_rect = pygame.Rect(initial_platform.posicao[0], HEIGHT - 10, initial_platform.comprimento, 10)
     pygame.draw.rect(screen, (100, 100, 100), initial_platform_rect)
-    # Plataforma de pouso
     landing_platform_rect = pygame.Rect(landing_platform.posicao[0], HEIGHT - 10, landing_platform.comprimento, 10)
     pygame.draw.rect(screen, (100, 100, 100), landing_platform_rect)
     
-    # Desenha o foguete
-    draw_rocket(screen, foguete)
+    # Se o foguete não estiver crashado, desenha-o; caso contrário, exibe "Crash!"
+    if not crashed:
+        draw_rocket(screen, foguete)
+    else:
+        crash_text = font.render("Crash!", True, (255, 0, 0))
+        crash_rect = crash_text.get_rect(center=(WIDTH // 2, HEIGHT // 2))
+        screen.blit(crash_text, crash_rect)
     
     # Desenha a barra de potência (lado direito) com moldura
     bar_x, bar_y, bar_width, bar_height = WIDTH - 40, HEIGHT - 150, 20, 100
