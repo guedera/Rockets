@@ -30,7 +30,7 @@ ARROW_SCALE = 0.2        # Fator de escala para converter velocidade em comprime
 ARROW_HEAD_LENGTH = 10
 ARROW_HEAD_ANGLE = 30      # em graus
 MIN_VELOCITY_DISPLAY = 5   # Se a velocidade for menor que esse valor, a seta não é desenhada
-MAX_ARROW_LENGTH = 100     # Tamanho máximo da seta
+MAX_ARROW_LENGTH = 50     # Tamanho máximo da seta
 BLINK_INTERVAL = 0.3       # Intervalo para o piscar da seta (em segundos)
 blink_timer = 0
 

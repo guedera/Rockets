@@ -5,7 +5,7 @@ class Rocket:
     POTENCIA_INCREMENTO = 1      # Incremento da potência por comando (1% por tecla)
     MAX_THRUST = 30000           # Empuxo máximo (N) para potência de 100%
     ROTATION_TORQUE = 3000.0     # Torque aplicado quando se pressiona A ou D (unidade arbitrária)
-    DRAG_COEFFICIENT = 10.0      # Coeficiente de arrasto (força de drag = -DRAG_COEFFICIENT * v)
+    DRAG_COEFFICIENT = 7.0      # Coeficiente de arrasto (força de drag = -DRAG_COEFFICIENT * v)
 
     def __init__(self, posicao_x: float, posicao_y: float, massa: float):
         """
