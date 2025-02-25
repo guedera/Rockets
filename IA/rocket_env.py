@@ -45,8 +45,9 @@ class RocketEnv(gym.Env):
         self.foguete.atualizar(delta_time)
         
         # Calcule a recompensa
-        reward = -0.1  # penalidade por passo (para incentivar soluções rápidas)
+        reward = - 0.1  # penalidade por passo (para incentivar soluções rápidas)
         done = False
+        
         # Se pousou com sucesso
         if pousou_com_sucesso():
             reward += 100
