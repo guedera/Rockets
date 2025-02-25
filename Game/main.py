@@ -13,13 +13,13 @@ screen = pygame.display.set_mode((WIDTH, HEIGHT))
 clock = pygame.time.Clock()
 
 # Carrega e redimensiona a imagem de fundo
-background = pygame.image.load("meu_jogo/src/images/Fundo.png").convert()
+background = pygame.image.load("Game/src/images/Fundo.png").convert()
 background = pygame.transform.scale(background, (WIDTH, HEIGHT))
 
 # Carrega a fonte personalizada (tamanhos reduzidos)
-splash_font = pygame.font.Font("meu_jogo/src/utils/JetBrainsMono-Regular.ttf", 60)
-small_font = pygame.font.Font("meu_jogo/src/utils/JetBrainsMono-Regular.ttf", 18)
-crash_font = pygame.font.Font("meu_jogo/src/utils/JetBrainsMono-Regular.ttf", 48)
+splash_font = pygame.font.Font("Game/src/utils/JetBrainsMono-Regular.ttf", 60)
+small_font = pygame.font.Font("Game/src/utils/JetBrainsMono-Regular.ttf", 18)
+crash_font = pygame.font.Font("Game/src/utils/JetBrainsMono-Regular.ttf", 48)
 
 # Informações de versão e quit (HUD no canto superior esquerdo)
 version_text = "0.8.0"
