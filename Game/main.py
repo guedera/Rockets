@@ -24,7 +24,7 @@ small_font = pygame.font.Font("Game/src/utils/JetBrainsMono-Regular.ttf", 18)
 crash_font = pygame.font.Font("Game/src/utils/JetBrainsMono-Regular.ttf", 48)
 
 # Informações de versão e quit (HUD no canto superior esquerdo)
-version_text = "0.8.2"
+version_text = "0.9.0"
 quit_text = "Press ESC to quit"
 
 # Constantes para as setinhas do HUD (usadas para Speed e Orientation)
@@ -93,11 +93,15 @@ fuel_consumed = 0.0
 # Nova variável oculta para indicar vitória (pouso seguro na plataforma de pouso)
 win = 0
 
+# Variável para controlar o tempo de exibição da mensagem de vitória
+landed_message_timer = None
+
 # --- IMPLEMENTAÇÃO DO TARGET ---
+# O target agora terá sua posição y sempre maior que 1 metro (100 pixels)
 TARGET_DIAMETER = 50
 target = Target(
     random.randint(TARGET_DIAMETER//2, WIDTH - TARGET_DIAMETER//2),
-    random.randint(TARGET_DIAMETER//2, HEIGHT - TARGET_DIAMETER//2),
+    random.randint(PIXELS_PER_METER, HEIGHT - TARGET_DIAMETER//2),
     TARGET_DIAMETER,
     TARGET_DIAMETER
 )
@@ -128,6 +132,17 @@ running = True
 while running:
     delta_time = clock.tick(FPS) / 1000.0
     blink_timer += delta_time
+
+    # Se já venceu, atualiza o timer da mensagem de vitória e fecha após 3 segundos.
+    if win == 1:
+        if landed_message_timer is None:
+            landed_message_timer = 0
+        else:
+            landed_message_timer += delta_time
+            if landed_message_timer >= 3:
+                pygame.quit()
+                sys.exit()
+
     if blink_timer >= BLINK_INTERVAL:
         blink_timer = 0
 
@@ -170,10 +185,12 @@ while running:
         crashed = False
         fuel_consumed = 0.0
         win = 0
-        # Reposiciona o target aleatoriamente e reseta a flag
+        landed_message_timer = None
+        # Reposiciona o target aleatoriamente e reseta a flag,
+        # garantindo que sua posição y seja maior que 1 metro.
         target = Target(
             random.randint(TARGET_DIAMETER//2, WIDTH - TARGET_DIAMETER//2),
-            random.randint(TARGET_DIAMETER//2, HEIGHT - TARGET_DIAMETER//2),
+            random.randint(PIXELS_PER_METER, HEIGHT - TARGET_DIAMETER//2),
             TARGET_DIAMETER,
             TARGET_DIAMETER
         )
@@ -230,11 +247,11 @@ while running:
     landing_platform_rect = pygame.Rect(landing_platform.posicao[0], HEIGHT - 10, landing_platform.comprimento, 10)
     pygame.draw.rect(screen, (100, 100, 100), landing_platform_rect)
 
-    # Desenha o target se ainda não foi atravessado
+    # Desenha o target se ainda não foi atravessado (agora em vermelho)
     if not target_passed:
         pygame.draw.circle(
             screen,
-            (255, 255, 255),
+            (255, 0, 0),
             (int(target.posicao[0]), HEIGHT - int(target.posicao[1])),
             int(target.altura / 2),
             2
