@@ -1,8 +1,10 @@
 import sys
 import pygame
 import math
+import random
 from src.entities.rocket import Rocket
 from src.entities.platform import Platform
+from src.entities.target import Target
 
 # Configurações da tela e da simulação
 WIDTH, HEIGHT = 1600, 900
@@ -22,7 +24,7 @@ small_font = pygame.font.Font("Game/src/utils/JetBrainsMono-Regular.ttf", 18)
 crash_font = pygame.font.Font("Game/src/utils/JetBrainsMono-Regular.ttf", 48)
 
 # Informações de versão e quit (HUD no canto superior esquerdo)
-version_text = "0.8.0"
+version_text = "0.8.2"
 quit_text = "Press ESC to quit"
 
 # Constantes para as setinhas do HUD (usadas para Speed e Orientation)
@@ -91,6 +93,16 @@ fuel_consumed = 0.0
 # Nova variável oculta para indicar vitória (pouso seguro na plataforma de pouso)
 win = 0
 
+# --- IMPLEMENTAÇÃO DO TARGET ---
+TARGET_DIAMETER = 50
+target = Target(
+    random.randint(TARGET_DIAMETER//2, WIDTH - TARGET_DIAMETER//2),
+    random.randint(TARGET_DIAMETER//2, HEIGHT - TARGET_DIAMETER//2),
+    TARGET_DIAMETER,
+    TARGET_DIAMETER
+)
+target_passed = False
+
 # Estados do jogo: "intro", "waiting", "play"
 game_state = "intro"
 intro_timer = 0.0
@@ -129,14 +141,14 @@ while running:
                 sys.exit()
             if game_state == "waiting" and event.key == pygame.K_SPACE:
                 game_state = "play"
-    
+
     screen.blit(background, (0, 0))
-    
+
     version_surface = small_font.render(version_text, True, (255, 255, 255))
     quit_surface = small_font.render(quit_text, True, (255, 255, 255))
     screen.blit(version_surface, (10, 10))
     screen.blit(quit_surface, (10, 30))
-    
+
     if game_state != "play":
         if game_state == "intro":
             intro_timer += delta_time
@@ -158,6 +170,14 @@ while running:
         crashed = False
         fuel_consumed = 0.0
         win = 0
+        # Reposiciona o target aleatoriamente e reseta a flag
+        target = Target(
+            random.randint(TARGET_DIAMETER//2, WIDTH - TARGET_DIAMETER//2),
+            random.randint(TARGET_DIAMETER//2, HEIGHT - TARGET_DIAMETER//2),
+            TARGET_DIAMETER,
+            TARGET_DIAMETER
+        )
+        target_passed = False
     if keys[pygame.K_x]:
         foguete.potencia_motor = 0
 
@@ -174,6 +194,14 @@ while running:
         if keys[pygame.K_d]:
             foguete.aplicar_torque(-Rocket.ROTATION_TORQUE, delta_time)
         foguete.atualizar(delta_time)
+
+        # Verifica se o foguete passou pelo target (checa se o centro do foguete está dentro do círculo)
+        if not target_passed:
+            dx = foguete.posicao[0] - target.posicao[0]
+            dy = foguete.posicao[1] - target.posicao[1]
+            if math.sqrt(dx**2 + dy**2) <= target.altura / 2:
+                target_passed = True
+
         rocket_half_height = rocket_height / 2
         if foguete.posicao[1] <= rocket_half_height and foguete.velocidade[1] <= 0:
             landing_speed = math.sqrt(foguete.velocidade[0]**2 + foguete.velocidade[1]**2)
@@ -184,36 +212,47 @@ while running:
             else:
                 if on_initial or on_landing:
                     foguete.posicao[1] = rocket_half_height
-                    # Se pousar na plataforma de pouso, marca vitória
-                    if on_landing:
-                        win = 1
                     if foguete.potencia_motor == 0:
                         foguete.velocidade = [0, 0]
                         foguete.angular_velocity = 0
                     else:
                         foguete.velocidade[1] = 0
                         foguete.angular_velocity = 0
+                    # Marca vitória somente se pousar na plataforma de pouso E tiver passado pelo target
+                    if on_landing and target_passed:
+                        win = 1
                 else:
                     crashed = True
 
+    # Desenha as plataformas
     initial_platform_rect = pygame.Rect(initial_platform.posicao[0], HEIGHT - 10, initial_platform.comprimento, 10)
     pygame.draw.rect(screen, (100, 100, 100), initial_platform_rect)
     landing_platform_rect = pygame.Rect(landing_platform.posicao[0], HEIGHT - 10, landing_platform.comprimento, 10)
     pygame.draw.rect(screen, (100, 100, 100), landing_platform_rect)
-    
+
+    # Desenha o target se ainda não foi atravessado
+    if not target_passed:
+        pygame.draw.circle(
+            screen,
+            (255, 255, 255),
+            (int(target.posicao[0]), HEIGHT - int(target.posicao[1])),
+            int(target.altura / 2),
+            2
+        )
+
     if not crashed:
         draw_rocket(screen, foguete)
     else:
         crash_text = crash_font.render("Crash!", True, (255, 0, 0))
         crash_rect = crash_text.get_rect(center=(WIDTH // 2, HEIGHT // 2))
         screen.blit(crash_text, crash_rect)
-    
+
     # --- HUD PANEL: Desenha o painel do HUD com fundo transparente e bordas arredondadas ---
     hud_surface = pygame.Surface((hud_panel_rect.width, hud_panel_rect.height), pygame.SRCALPHA)
     pygame.draw.rect(hud_surface, HUD_BG_COLOR, hud_surface.get_rect(), border_radius=HUD_BORDER_RADIUS)
     pygame.draw.rect(hud_surface, HUD_BORDER_COLOR, hud_surface.get_rect(), 2, border_radius=HUD_BORDER_RADIUS)
     screen.blit(hud_surface, hud_panel_rect.topleft)
-    
+
     dx_pixels = foguete.posicao[0] - rocket_initial_x
     dy_pixels = foguete.posicao[1] - rocket_initial_y
     pos_x_m = dx_pixels / PIXELS_PER_METER
@@ -221,15 +260,15 @@ while running:
     position_text = small_font.render(f"Pos: {pos_x_m:.2f}:{pos_y_m:.2f} m", True, (255, 255, 255))
     position_text_rect = position_text.get_rect(center=(hud_panel_rect.centerx, hud_panel_rect.top + 15))
     screen.blit(position_text, position_text_rect)
-    
+
     fuel_text = small_font.render(f"Fuel: {fuel_consumed:.2f}", True, (255, 255, 255))
     fuel_text_rect = fuel_text.get_rect(center=(hud_panel_rect.centerx - 100, hud_panel_rect.bottom - 20))
     screen.blit(fuel_text, fuel_text_rect)
-    
+
     speed_value_text = small_font.render(f"v: { (math.sqrt(foguete.velocidade[0]**2 + foguete.velocidade[1]**2)) / PIXELS_PER_METER:.2f} m/s", True, (255, 255, 255))
     speed_value_rect = speed_value_text.get_rect(center=(hud_panel_rect.centerx + 100, hud_panel_rect.bottom - 20))
     screen.blit(speed_value_text, speed_value_rect)
-    
+
     # --- HUD: Grupo de indicadores no painel ---
     # 1. Thrust (Barra de potência) com rótulo acima
     thrust_bar_width = 20
@@ -243,7 +282,7 @@ while running:
     thrust_label = small_font.render("Thrust", True, (255, 255, 255))
     thrust_label_rect = thrust_label.get_rect(center=(THRUST_GROUP_CENTER[0], thrust_bar_y - 15))
     screen.blit(thrust_label, thrust_label_rect)
-    
+
     # 2. Speed (Setas de velocidade) com rótulo acima
     if abs(foguete.velocidade[0]) >= MIN_VELOCITY_DISPLAY:
         arrow_length_x = abs(foguete.velocidade[0]) * ARROW_SCALE
@@ -266,7 +305,7 @@ while running:
     speed_label = small_font.render("Speed", True, (255, 255, 255))
     speed_label_rect = speed_label.get_rect(center=(SPEED_GROUP_CENTER[0], SPEED_GROUP_CENTER[1] - 65))
     screen.blit(speed_label, speed_label_rect)
-    
+
     # 3. Orientation (Seta de orientação fixa) com rótulo acima
     ORIENTATION_ARROW_LENGTH = 80
     rad = math.radians(foguete.orientacao)
@@ -281,13 +320,13 @@ while running:
     orientation_label = small_font.render("Orientation", True, (255, 255, 255))
     orientation_label_rect = orientation_label.get_rect(center=(ORIENTATION_GROUP_CENTER[0], ORIENTATION_GROUP_CENTER[1] - 65))
     screen.blit(orientation_label, orientation_label_rect)
-    
-    # Se o foguete pousou com sucesso na plataforma de pouso, exibe mensagem de vitória
+
+    # Se o foguete pousou com sucesso na plataforma de pouso e passou pelo target, exibe mensagem de vitória
     if win == 1:
         landed_text = small_font.render("Houston, we Landed.", True, (0, 255, 0))
         landed_rect = landed_text.get_rect(center=(WIDTH//2, HEIGHT//2))
         screen.blit(landed_text, landed_rect)
-    
+
     pygame.display.flip()
 
 pygame.quit()
