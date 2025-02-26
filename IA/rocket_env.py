@@ -1,4 +1,9 @@
-# /home/guedes/Documents/Projects/Rockets/IA/rocket_env.py
+import os
+import sys
+# Adiciona o diretório raiz do projeto ao sys.path para que os módulos do Game sejam encontrados
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if project_root not in sys.path:
+    sys.path.append(project_root)
 
 import gym
 import numpy as np
@@ -35,7 +40,7 @@ class RocketEnv(gym.Env):
         low = np.array([
             0, 0, 20, 40,      # rocket posição e tamanho
             0, 0,              # target posição
-            0, 0,              # landing platform posição (y = 0)
+            0, 0,              # landing platform (y = 0)
             0, 0,              # engine power e fuel
             -1000, -1000,      # velocidades
             -720,             # orientação
@@ -63,7 +68,8 @@ class RocketEnv(gym.Env):
 
         # Foguete: inicializado na plataforma inicial
         rocket_initial_x = self.initial_platform.posicao[0] + self.initial_platform.comprimento / 2
-        rocket_initial_y = 40 / 2  # altura do foguete / 2
+        # No main.py, o foguete inicia no solo: rocket_height/2 = 20 pixels.
+        rocket_initial_y = 40 / 2  
         self.rocket = Rocket(posicao_x=rocket_initial_x, posicao_y=rocket_initial_y, massa=50)
 
         # Target: posição y sempre maior que 1 metro (100 pixels)
@@ -111,7 +117,8 @@ class RocketEnv(gym.Env):
         self.crashed = False
 
         rocket_initial_x = self.initial_platform.posicao[0] + self.initial_platform.comprimento / 2
-        rocket_initial_y = 40 / 2
+        # Para iniciar no solo, usamos rocket_height/2 = 20 pixels.
+        rocket_initial_y = 40 / 2  
         self.rocket = Rocket(posicao_x=rocket_initial_x, posicao_y=rocket_initial_y, massa=50)
         self._spawn_target()
         return self._get_obs()
@@ -145,7 +152,7 @@ class RocketEnv(gym.Env):
             self.target_passed = True
             reward += 50  # bônus por passar pelo target
 
-        # Verifica se o foguete toca o solo (consideramos rocket_half_height)
+        # Verifica se o foguete toca o solo (usamos rocket_half_height = 40/2 = 20)
         rocket_half_height = 40 / 2
         if self.rocket.posicao[1] <= rocket_half_height and self.rocket.velocidade[1] <= 0:
             landing_speed = math.sqrt(self.rocket.velocidade[0]**2 + self.rocket.velocidade[1]**2)
@@ -182,7 +189,7 @@ class RocketEnv(gym.Env):
         return obs, reward, done, info
 
     def render(self, mode='human'):
-        # Renderização simplificada: apenas imprime a observação
+        # Renderização simplificada: imprime a observação (para debug)
         obs = self._get_obs()
         print("Observation:", obs)
 

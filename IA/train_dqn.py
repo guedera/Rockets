@@ -1,3 +1,5 @@
+# /home/guedes/Documents/Projects/Rockets/IA/train_dqn.py
+
 import time
 from stable_baselines3 import DQN
 from stable_baselines3.common.callbacks import EvalCallback, CheckpointCallback, CallbackList
