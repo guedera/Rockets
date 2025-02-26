@@ -24,7 +24,7 @@ small_font = pygame.font.Font("game/src/utils/JetBrainsMono-Regular.ttf", 18)
 crash_font = pygame.font.Font("game/src/utils/JetBrainsMono-Regular.ttf", 48)
 
 # Informações do HUD
-version_text = "0.9.0"
+version_text = "0.9.5"
 quit_text = "Press ESC to quit"
 
 # Constantes para as setinhas do HUD

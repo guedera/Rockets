@@ -1,34 +1,46 @@
 import math
+import config
 
 class Rocket:
-    GRAVIDADE = 500.0            # pixels/s²
-    POTENCIA_INCREMENTO = 1      # Incremento da potência (1% por tecla)
-    MAX_THRUST = 30000           # Empuxo máximo (N) para potência de 100%
-    ROTATION_TORQUE = 3000.0     # Torque aplicado (valor arbitrário)
-    DRAG_COEFFICIENT = 7.0       # Coeficiente de arrasto
+    GRAVIDADE = config.GRAVITY
+    POTENCIA_INCREMENTO = config.POTENCIA_INCREMENTO
+    MAX_THRUST = config.MAX_THRUST
+    ROTATION_TORQUE = config.ROTATION_TORQUE
+    DRAG_COEFFICIENT = config.DRAG_COEFFICIENT
 
     def __init__(self, posicao_x: float, posicao_y: float, massa: float):
+        """
+        Inicializa o foguete.
+        :param posicao_x: posição inicial em x do centro de massa (pixels)
+        :param posicao_y: posição inicial em y do centro de massa (pixels)
+        :param massa: massa do foguete
+        """
         self.posicao = [posicao_x, posicao_y]
-        self.initial_position = [posicao_x, posicao_y]
-        self.orientacao = 90.0          
-        self.initial_orientation = 90.0 
-        self.velocidade = [0.0, 0.0]    
-        self.angular_velocity = 0.0     
+        self.initial_position = [posicao_x, posicao_y]  # Para reset
+        self.orientacao = 90.0          # 90° = foguete "de pé"
+        self.initial_orientation = 90.0 # Para reset
+        self.velocidade = [0.0, 0.0]    # pixels/s
+        self.angular_velocity = 0.0     # graus/s
         self.massa = massa
-        self.potencia_motor = 0         
-        self.moment_of_inercia = self.massa * 50  
+        self.potencia_motor = 0         # 0 a 100%
+        self.moment_of_inercia = self.massa * config.INERTIA_MULTIPLIER
 
+        # Atributos para o HUD e métricas
         self.fuel_consumed = 0.0
         self.target_reached = False
         self.landed = False
         self.crashed = False
 
+        # Novas métricas para a IA
         self.distance_to_target = None
         self.angle_difference = None
         self.distance_to_landing_platform_x = None
         self.distance_to_landing_platform_y = None
 
     def reset(self):
+        """
+        Reseta o foguete para o estado inicial.
+        """
         self.posicao = self.initial_position.copy()
         self.orientacao = self.initial_orientation
         self.velocidade = [0.0, 0.0]
@@ -45,6 +57,9 @@ class Rocket:
         self.distance_to_landing_platform_y = None
 
     def aplicar_forca(self, delta_time):
+        """
+        Calcula e retorna as acelerações (ax, ay) resultantes do empuxo, gravidade e drag.
+        """
         thrust = (self.potencia_motor / 100.0) * self.MAX_THRUST
         total_angle_rad = math.radians(self.orientacao)
         thrust_force_x = thrust * math.cos(total_angle_rad)
@@ -63,6 +78,9 @@ class Rocket:
         return ax, ay
 
     def update_physics(self, delta_time):
+        """
+        Atualiza velocidade, posição e orientação com base nas acelerações calculadas e na velocidade angular.
+        """
         ax, ay = self.aplicar_forca(delta_time)
         self.velocidade[0] += ax * delta_time
         self.velocidade[1] += ay * delta_time
@@ -71,10 +89,16 @@ class Rocket:
         self.orientacao += self.angular_velocity * delta_time
 
     def atualizar(self, delta_time):
+        """
+        Atualiza o estado do foguete, aplicando física e acumulando combustível consumido.
+        """
         self.update_physics(delta_time)
         self.fuel_consumed += (self.potencia_motor / 100.0) * delta_time
 
     def alterar_potencia(self, incremento):
+        """
+        Ajusta a potência do motor.
+        """
         self.potencia_motor += incremento
         self.potencia_motor = max(0, min(100, self.potencia_motor))
 
@@ -87,6 +111,12 @@ class Rocket:
         self.angular_velocity += angular_acc_deg * delta_time
 
     def compute_metrics(self, target, landing_platform):
+        """
+        Atualiza as métricas:
+         - Distância até o target.
+         - Diferença entre o ângulo do foguete e o ângulo da reta que une o foguete ao target.
+         - Distância em x e y até o centro da plataforma de pouso.
+        """
         dx = target.posicao[0] - self.posicao[0]
         dy = target.posicao[1] - self.posicao[1]
         self.distance_to_target = math.sqrt(dx**2 + dy**2)
@@ -95,11 +125,14 @@ class Rocket:
         self.angle_difference = abs((self.orientacao - angle_to_target + 180) % 360 - 180)
 
         landing_center_x = landing_platform.posicao[0] + landing_platform.comprimento / 2
-        landing_center_y = landing_platform.altura
+        landing_center_y = landing_platform.altura  # assume plataforma na altura 0
         self.distance_to_landing_platform_x = abs(self.posicao[0] - landing_center_x)
         self.distance_to_landing_platform_y = abs(self.posicao[1] - landing_center_y)
 
     def get_state(self):
+        """
+        Retorna um dicionário com o estado atual do foguete.
+        """
         return {
             'position': self.posicao.copy(),
             'velocity': self.velocidade.copy(),
