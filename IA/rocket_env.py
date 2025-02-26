@@ -11,9 +11,9 @@ from gym import spaces
 import math
 import random
 
-from Game.src.entities.rocket import Rocket
-from Game.src.entities.platform import Platform
-from Game.src.entities.target import Target
+from game.src.entities.rocket import Rocket
+from game.src.entities.platform import Platform
+from game.src.entities.target import Target
 
 # Constantes do jogo (iguais aos usados na main)
 WIDTH = 1600
