@@ -8,6 +8,7 @@ from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 from stable_baselines3.common.env_checker import check_env
 import torch
+import warnings
 
 # Create directories for models and logs
 model_dir = "models"
@@ -54,6 +55,15 @@ policy_kwargs = dict(
     net_arch=[256, 256],  # Two hidden layers with 256 neurons each
 )
 
+# Check if TensorBoard is available
+tensorboard_log = log_dir
+try:
+    import tensorboard
+    print("TensorBoard is available. Logging data to TensorBoard.")
+except ImportError:
+    warnings.warn("TensorBoard is not installed. Training will continue without TensorBoard logging.")
+    tensorboard_log = None
+
 # Initialize the DQN agent
 print("Creating and training DQN agent...")
 model = DQN(
@@ -72,7 +82,7 @@ model = DQN(
     exploration_initial_eps=1.0,
     exploration_final_eps=0.05,
     verbose=1,
-    tensorboard_log=log_dir,
+    tensorboard_log=tensorboard_log,
     device='cuda' if torch.cuda.is_available() else 'cpu'
 )
 
@@ -82,7 +92,7 @@ start_time = time.time()
 model.learn(
     total_timesteps=total_timesteps, 
     callback=callback, 
-    tb_log_name="dqn_rocket"
+    tb_log_name="dqn_rocket" if tensorboard_log else None
 )
 
 training_time = time.time() - start_time

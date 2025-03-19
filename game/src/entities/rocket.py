@@ -1,5 +1,5 @@
 import math
-import config
+import game.config as config
 
 class Rocket:
     GRAVIDADE = config.GRAVITY
