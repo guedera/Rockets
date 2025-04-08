@@ -1,5 +1,10 @@
 import math
-import game.config as config
+import sys
+import os
+
+# Ajusta o caminho para importar o config corretamente
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+import config
 
 class Rocket:
     GRAVIDADE = config.GRAVITY

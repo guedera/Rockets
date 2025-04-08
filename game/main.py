@@ -1,27 +1,51 @@
 import sys
+import os
 import pygame
 import math
 import random
-from src.entities.rocket import Rocket
-from src.entities.platform import Platform
-from src.entities.target import Target
+
+# Garantir que o diretório atual está no path
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+from src.environment import RocketEnvironment
+import config
 
 # Configurações da tela e da simulação
-WIDTH, HEIGHT = 1600, 900
-FPS = 60
+WIDTH, HEIGHT = config.WIDTH, config.HEIGHT
+FPS = config.FPS
 
 pygame.init()
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 clock = pygame.time.Clock()
 
+# Corrige os caminhos para arquivos de recursos
+# Detecta o caminho base do projeto
+base_path = os.path.dirname(os.path.abspath(__file__))
+
 # Carrega e redimensiona a imagem de fundo
-background = pygame.image.load("game/src/images/Fundo.png").convert()
+try:
+    image_path = os.path.join(base_path, "src/images/Fundo.png")
+    print(f"Tentando carregar fundo de: {image_path}")
+    
+    if os.path.exists(image_path):
+        background = pygame.image.load(image_path).convert()
+    else:
+        print(f"Arquivo não encontrado: {image_path}")
+        background = pygame.Surface((WIDTH, HEIGHT))
+        background.fill((0, 0, 0))
+except Exception as e:
+    print(f"Erro ao carregar o fundo: {e}")
+    # Cria um fundo preto de backup caso a imagem não seja encontrada
+    background = pygame.Surface((WIDTH, HEIGHT))
+    background.fill((0, 0, 0))
+
 background = pygame.transform.scale(background, (WIDTH, HEIGHT))
 
 # Carrega as fontes
-splash_font = pygame.font.Font("game/src/utils/JetBrainsMono-Regular.ttf", 60)
-small_font = pygame.font.Font("game/src/utils/JetBrainsMono-Regular.ttf", 18)
-crash_font = pygame.font.Font("game/src/utils/JetBrainsMono-Regular.ttf", 48)
+font_path = os.path.join(base_path, "src/utils/JetBrainsMono-Regular.ttf")
+splash_font = pygame.font.Font(font_path, 60)
+small_font = pygame.font.Font(font_path, 18)
+crash_font = pygame.font.Font(font_path, 48)
 
 # Informações do HUD
 version_text = "0.9.5"
@@ -61,128 +85,88 @@ SPEED_GROUP_CENTER  = (hud_center[0], hud_panel_rect.centery + 20)
 ORIENTATION_GROUP_CENTER = (hud_center[0] + 150, hud_panel_rect.centery + 20)
 POSITION_TEXT_CENTER = (hud_panel_rect.centerx, hud_panel_rect.top + 15)
 
-LANDING_SPEED_THRESHOLD = 50
+# Inicialização do ambiente
+env = RocketEnvironment(width=WIDTH, height=HEIGHT, render_mode='human')
+PIXELS_PER_METER = env.pixels_per_meter
 
-# Criação das plataformas
-initial_platform_width = 200
-initial_platform_x = 100
-initial_platform = Platform(posicao_x=initial_platform_x, comprimento=initial_platform_width, altura=0)
-
-landing_platform_width = 200
-landing_platform_x = WIDTH - landing_platform_width - 100
-landing_platform = Platform(posicao_x=landing_platform_x, comprimento=landing_platform_width, altura=0)
-
-# Criação do foguete (iniciado na plataforma inicial)
-rocket_width, rocket_height = 20, 40
-rocket_initial_x = initial_platform.posicao[0] + initial_platform.comprimento / 2
-rocket_initial_y = rocket_height / 2
-foguete = Rocket(posicao_x=rocket_initial_x, posicao_y=rocket_initial_y, massa=50)
-
-PIXELS_PER_METER = 100
-
-# Definição do target: posição fixa em (5m, 5m) e tamanho pequeno (30 pixels de diâmetro)
-TARGET_DIAMETER = 30
-target = Target(
-    5 * PIXELS_PER_METER,
-    5 * PIXELS_PER_METER,
-    TARGET_DIAMETER,
-    TARGET_DIAMETER
-)
-
-# Inicia o jogo
-game_state = "play"
+# Variáveis do jogo
 landed_message_timer = None
+rocket_width, rocket_height = env.rocket_width, env.rocket_height
+game_shutdown = False
 
 running = True
 while running:
+    # Limpa a tela com o fundo antes de cada novo frame
+    screen.blit(background, (0, 0))
+    
     delta_time = clock.tick(FPS) / 1000.0
     blink_timer += delta_time
 
-    if foguete.landed:
+    foguete = env.rocket
+    if foguete.landed and not game_shutdown:
         if landed_message_timer is None:
             landed_message_timer = 0
         else:
             landed_message_timer += delta_time
             if landed_message_timer >= 3:
-                pygame.quit()
-                sys.exit()
+                game_shutdown = True
+                # Não chamamos pygame.quit() e sys.exit() imediatamente
+                # Em vez disso, definimos uma flag para sair do loop principal
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
-            pygame.quit()
-            sys.exit()
+            running = False
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
-                pygame.quit()
-                sys.exit()
+                running = False
 
-    screen.blit(background, (0, 0))
-    version_surface = small_font.render(version_text, True, (255, 255, 255))
-    quit_surface = small_font.render(quit_text, True, (255, 255, 255))
-    screen.blit(version_surface, (10, 10))
-    screen.blit(quit_surface, (10, 30))
+    # Se o jogo está marcado para encerrar, saímos do loop
+    if game_shutdown:
+        running = False
+        break
 
     keys = pygame.key.get_pressed()
     if keys[pygame.K_r]:
-        foguete.reset()
-        target = Target(
-            5 * PIXELS_PER_METER,
-            5 * PIXELS_PER_METER,
-            TARGET_DIAMETER,
-            TARGET_DIAMETER
-        )
+        env.reset()
         landed_message_timer = None
-    if keys[pygame.K_x]:
-        foguete.potencia_motor = 0
-
-    if not foguete.crashed:
-        if keys[pygame.K_w]:
-            foguete.alterar_potencia(Rocket.POTENCIA_INCREMENTO)
-        if keys[pygame.K_s]:
-            foguete.alterar_potencia(-Rocket.POTENCIA_INCREMENTO)
-        if keys[pygame.K_a]:
-            foguete.aplicar_torque(+Rocket.ROTATION_TORQUE, delta_time)
-        if keys[pygame.K_d]:
-            foguete.aplicar_torque(-Rocket.ROTATION_TORQUE, delta_time)
-        foguete.atualizar(delta_time)
-        # Atualiza as métricas (distâncias e ângulo) usando o target e a plataforma de pouso
-        foguete.compute_metrics(target, landing_platform)
-
-        # Verifica se o foguete pegou o target
-        if not foguete.target_reached:
-            dx = foguete.posicao[0] - target.posicao[0]
-            dy = foguete.posicao[1] - target.posicao[1]
-            if math.sqrt(dx**2 + dy**2) <= target.altura / 2:
-                foguete.target_reached = True
-
-        rocket_half_height = rocket_height / 2
-        if foguete.posicao[1] <= rocket_half_height and foguete.velocidade[1] <= 0:
-            landing_speed = math.sqrt(foguete.velocidade[0]**2 + foguete.velocidade[1]**2)
-            on_initial = (initial_platform.posicao[0] <= foguete.posicao[0] <= initial_platform.posicao[0] + initial_platform.comprimento)
-            on_landing = (landing_platform.posicao[0] <= foguete.posicao[0] <= landing_platform.posicao[0] + landing_platform.comprimento)
-            if landing_speed > LANDING_SPEED_THRESHOLD:
-                foguete.crashed = True
-            else:
-                if on_initial or on_landing:
-                    foguete.posicao[1] = rocket_half_height
-                    if foguete.potencia_motor == 0:
-                        foguete.velocidade = [0, 0]
-                        foguete.angular_velocity = 0
-                    else:
-                        foguete.velocidade[1] = 0
-                        foguete.angular_velocity = 0
-                    if on_landing and foguete.target_reached:
-                        foguete.landed = True
-                else:
-                    foguete.crashed = True
-
+    
+    # Converte teclas pressionadas em ações para o ambiente
+    action = None
+    if not foguete.crashed and not foguete.landed:
+        if keys[pygame.K_x]:
+            foguete.potencia_motor = 0
+        elif keys[pygame.K_w] and keys[pygame.K_a]:
+            action = 5  # Aumentar potência + Girar anti-horário
+        elif keys[pygame.K_w] and keys[pygame.K_d]:
+            action = 6  # Aumentar potência + Girar horário
+        elif keys[pygame.K_s] and keys[pygame.K_a]:
+            action = 7  # Diminuir potência + Girar anti-horário
+        elif keys[pygame.K_s] and keys[pygame.K_d]:
+            action = 8  # Diminuir potência + Girar horário
+        elif keys[pygame.K_w]:
+            action = 1  # Aumentar potência
+        elif keys[pygame.K_s]:
+            action = 2  # Diminuir potência
+        elif keys[pygame.K_a]:
+            action = 3  # Girar anti-horário
+        elif keys[pygame.K_d]:
+            action = 4  # Girar horário
+        else:
+            action = 0  # Não fazer nada
+        
+        if action is not None:
+            state, reward, done, info = env.step(action)
+    
     # Desenha as plataformas
+    initial_platform = env.initial_platform
+    landing_platform = env.landing_platform
     initial_platform_rect = pygame.Rect(initial_platform.posicao[0], HEIGHT - 10, initial_platform.comprimento, 10)
     pygame.draw.rect(screen, (100, 100, 100), initial_platform_rect)
     landing_platform_rect = pygame.Rect(landing_platform.posicao[0], HEIGHT - 10, landing_platform.comprimento, 10)
     pygame.draw.rect(screen, (100, 100, 100), landing_platform_rect)
 
     # Desenha o target com aro de espessura maior (4)
+    target = env.target
     if not foguete.target_reached:
         pygame.draw.circle(
             screen,
@@ -194,20 +178,55 @@ while running:
 
     if not foguete.crashed:
         def draw_rocket(surface, rocket):
+            # Criamos a superfície do foguete com transparência
             rocket_surf = pygame.Surface((rocket_width, rocket_height), pygame.SRCALPHA)
+            # Limpa a superfície do foguete antes de desenhar
+            rocket_surf.fill((0, 0, 0, 0))  # Completamente transparente
+            
+            # Desenha o corpo do foguete
             body_rect = pygame.Rect(0, 10, rocket_width, rocket_height - 10)
             pygame.draw.rect(rocket_surf, (200, 0, 0), body_rect)
             pygame.draw.polygon(rocket_surf, (255, 0, 0), [(0, 10), (rocket_width, 10), (rocket_width/2, 0)])
             pygame.draw.polygon(rocket_surf, (150, 150, 150), [(0, rocket_height), (5, rocket_height - 10), (0, rocket_height - 10)])
             pygame.draw.polygon(rocket_surf, (150, 150, 150), [(rocket_width, rocket_height), (rocket_width - 5, rocket_height - 10), (rocket_width, rocket_height - 10)])
+            
+            # Rotaciona a superfície
             rotated_surf = pygame.transform.rotate(rocket_surf, (rocket.orientacao - 90))
             rotated_rect = rotated_surf.get_rect(center=(int(rocket.posicao[0]), HEIGHT - int(rocket.posicao[1])))
+            
+            # Desenha no destino
             surface.blit(rotated_surf, rotated_rect.topleft)
+        
         draw_rocket(screen, foguete)
     else:
         crash_text = crash_font.render("Crash!", True, (255, 0, 0))
         crash_rect = crash_text.get_rect(center=(WIDTH // 2, HEIGHT // 2))
         screen.blit(crash_text, crash_rect)
+
+    # Verifica as condições de pouso ou crash
+    rocket_half_height = rocket_height / 2
+    if foguete.posicao[1] <= rocket_half_height and foguete.velocidade[1] <= 0:
+        landing_speed = math.sqrt(foguete.velocidade[0]**2 + foguete.velocidade[1]**2)
+        on_initial = (initial_platform.posicao[0] <= foguete.posicao[0] <= initial_platform.posicao[0] + initial_platform.comprimento)
+        on_landing = (landing_platform.posicao[0] <= foguete.posicao[0] <= landing_platform.posicao[0] + landing_platform.comprimento)
+        if landing_speed > config.LANDING_SPEED_THRESHOLD:
+            foguete.crashed = True
+        else:
+            if on_initial or on_landing:
+                foguete.posicao[1] = rocket_half_height
+                if foguete.potencia_motor == 0:
+                    foguete.velocidade = [0, 0]
+                    foguete.angular_velocity = 0
+                    
+                    # Apenas marcar o estado landed aqui se estiver na plataforma de pouso e com potência zero
+                    if on_landing:
+                        foguete.landed = True
+                else:
+                    foguete.velocidade[1] = 0
+                    foguete.angular_velocity = 0
+                    # Não marca como landed se a potência não for zero
+            else:
+                foguete.crashed = True
 
     # --- HUD Panel ---
     hud_surface = pygame.Surface((hud_panel_rect.width, hud_panel_rect.height), pygame.SRCALPHA)
@@ -215,6 +234,8 @@ while running:
     pygame.draw.rect(hud_surface, HUD_BORDER_COLOR, hud_surface.get_rect(), 2, border_radius=HUD_BORDER_RADIUS)
     screen.blit(hud_surface, hud_panel_rect.topleft)
 
+    rocket_initial_x = env.rocket_initial_x
+    rocket_initial_y = env.rocket_initial_y
     dx_pixels = foguete.posicao[0] - rocket_initial_x
     dy_pixels = foguete.posicao[1] - rocket_initial_y
     pos_x_m = dx_pixels / PIXELS_PER_METER
@@ -290,11 +311,41 @@ while running:
     orientation_label_rect = orientation_label.get_rect(center=(ORIENTATION_GROUP_CENTER[0], ORIENTATION_GROUP_CENTER[1] - 65))
     screen.blit(orientation_label, orientation_label_rect)
 
+    # Exibir mensagens de estado em um único lugar no código para evitar sobreposição
     if foguete.landed:
-        landed_msg = small_font.render("Houston, we Landed.", True, (0, 255, 0))
-        landed_msg_rect = landed_msg.get_rect(center=(WIDTH//2, HEIGHT//2))
-        screen.blit(landed_msg, landed_msg_rect)
+        # Caixa de fundo para a mensagem para melhor legibilidade
+        if foguete.target_reached:
+            msg_text = "Houston, we have a perfect landing!"
+            msg_color = (0, 255, 0)  # Verde para sucesso completo
+        else:
+            msg_text = "Landed, but mission incomplete. Target missed."
+            msg_color = (255, 255, 0)  # Amarelo para sucesso parcial
+        
+        landed_msg = small_font.render(msg_text, True, msg_color)
+        msg_rect = landed_msg.get_rect(center=(WIDTH//2, HEIGHT//2))
+        
+        # Adiciona um fundo semi-transparente para melhorar a legibilidade
+        bg_rect = msg_rect.inflate(20, 10)
+        bg_surface = pygame.Surface((bg_rect.width, bg_rect.height), pygame.SRCALPHA)
+        bg_surface.fill((0, 0, 0, 180))  # Preto com 70% de opacidade
+        screen.blit(bg_surface, bg_rect.topleft)
+        
+        # Renderiza a mensagem
+        screen.blit(landed_msg, msg_rect)
+    elif foguete.crashed:
+        crash_text = crash_font.render("Crash!", True, (255, 0, 0))
+        crash_rect = crash_text.get_rect(center=(WIDTH // 2, HEIGHT // 2))
+        
+        # Fundo para a mensagem de crash
+        bg_rect = crash_rect.inflate(20, 10)
+        bg_surface = pygame.Surface((bg_rect.width, bg_rect.height), pygame.SRCALPHA)
+        bg_surface.fill((0, 0, 0, 180))
+        screen.blit(bg_surface, bg_rect.topleft)
+        
+        screen.blit(crash_text, crash_rect)
 
     pygame.display.flip()
 
+# Garantir que o pygame é encerrado corretamente fora do loop principal
 pygame.quit()
+sys.exit()

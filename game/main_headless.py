@@ -2,8 +2,10 @@ import os
 # Força o modo headless definindo o driver dummy para o SDL
 os.environ["SDL_VIDEODRIVER"] = "dummy"
 
-import config
 import sys
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+import config
 import pygame
 import math
 import random
@@ -12,7 +14,7 @@ from src.entities.platform import Platform
 from src.entities.target import Target
 
 # Configurações da tela e simulação a partir do config.py
-WIDTH, HEIGHT = config.WIDTH, config.HEIGHT
+WIDTH, HEIGHT = config.WIDTH, config.HEIGHT  # Corrigido para usar config.HEIGHT
 FPS = config.FPS
 PIXELS_PER_METER = config.PIXELS_PER_METER
 
@@ -25,10 +27,14 @@ clock = pygame.time.Clock()
 background = pygame.Surface((WIDTH, HEIGHT))
 background.fill((0, 0, 0))
 
+# Detecta o caminho base do projeto
+base_path = os.path.dirname(os.path.abspath(__file__))
+
 # Carrega as fontes (opcional, para debug/log)
-splash_font = pygame.font.Font("game/src/utils/JetBrainsMono-Regular.ttf", 60)
-small_font = pygame.font.Font("game/src/utils/JetBrainsMono-Regular.ttf", 18)
-crash_font = pygame.font.Font("game/src/utils/JetBrainsMono-Regular.ttf", 48)
+font_path = os.path.join(base_path, "src/utils/JetBrainsMono-Regular.ttf")
+splash_font = pygame.font.Font(font_path, 60)
+small_font = pygame.font.Font(font_path, 18)
+crash_font = pygame.font.Font(font_path, 48)
 
 # Informações (opcionais)
 version_text = "0.9.0"
@@ -92,8 +98,12 @@ while running:
                 else:
                     foguete.velocidade[1] = 0
                     foguete.angular_velocity = 0
-                if on_landing and foguete.target_reached:
+                # Modificação: Considera como "landed" se estiver na plataforma de pouso,
+                # independente de ter pegado o target
+                if on_landing:
                     foguete.landed = True
+                    # Opcionalmente, registro do resultado
+                    print(f"Pouso realizado! Target atingido: {foguete.target_reached}")
             else:
                 foguete.crashed = True
 

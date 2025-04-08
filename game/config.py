@@ -21,4 +21,4 @@ MAX_ARROW_LENGTH = 50
 BLINK_INTERVAL = 0.3
 
 # Outros parâmetros
-LANDING_SPEED_THRESHOLD = 50
+LANDING_SPEED_THRESHOLD = 200     # Aumentado de 50 para 200 para ser mais tolerante
