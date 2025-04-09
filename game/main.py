@@ -25,17 +25,15 @@ base_path = os.path.dirname(os.path.abspath(__file__))
 # Carrega e redimensiona a imagem de fundo
 try:
     image_path = os.path.join(base_path, "src/images/Fundo.png")
-    print(f"Tentando carregar fundo de: {image_path}")
     
     if os.path.exists(image_path):
         background = pygame.image.load(image_path).convert()
     else:
-        print(f"Arquivo não encontrado: {image_path}")
+        # Cria um fundo preto de backup caso a imagem não seja encontrada
         background = pygame.Surface((WIDTH, HEIGHT))
         background.fill((0, 0, 0))
 except Exception as e:
-    print(f"Erro ao carregar o fundo: {e}")
-    # Cria um fundo preto de backup caso a imagem não seja encontrada
+    # Cria um fundo preto de backup em caso de erro
     background = pygame.Surface((WIDTH, HEIGHT))
     background.fill((0, 0, 0))
 
@@ -102,8 +100,13 @@ while running:
     delta_time = clock.tick(FPS) / 1000.0
     blink_timer += delta_time
 
+    # Resetar o timer de piscar quando ele ultrapassar um ciclo completo
+    if blink_timer >= BLINK_INTERVAL:
+        blink_timer = blink_timer % BLINK_INTERVAL
+
     foguete = env.rocket
-    if foguete.landed and not game_shutdown:
+    # Mudança: só finaliza o jogo se o foguete pousou E pegou o target OU se crashou
+    if foguete.landed and foguete.target_reached and not game_shutdown:
         if landed_message_timer is None:
             landed_message_timer = 0
         else:
@@ -132,9 +135,13 @@ while running:
     
     # Converte teclas pressionadas em ações para o ambiente
     action = None
-    if not foguete.crashed and not foguete.landed:
+    # Importante: permitir controle se estiver pousado mas não tiver pego o target ainda
+    if not foguete.crashed and (not foguete.landed or (foguete.landed and not foguete.target_reached)):
         if keys[pygame.K_x]:
+            # Modificação: só alterar o valor da potência, sem enviar como ação para o ambiente
+            # Isso evita efeitos colaterais indesejados na simulação
             foguete.potencia_motor = 0
+            action = 0  # Definir ação para "não fazer nada" em vez de deixar None
         elif keys[pygame.K_w] and keys[pygame.K_a]:
             action = 5  # Aumentar potência + Girar anti-horário
         elif keys[pygame.K_w] and keys[pygame.K_d]:
@@ -218,9 +225,11 @@ while running:
                     foguete.velocidade = [0, 0]
                     foguete.angular_velocity = 0
                     
-                    # Apenas marcar o estado landed aqui se estiver na plataforma de pouso e com potência zero
+                    # Marca como pousado mas não encerra o jogo, a não ser que tenha pegado o target
                     if on_landing:
+                        # Apenas marca como pousado, mas o jogo continua
                         foguete.landed = True
+                        # Não marcamos game_shutdown aqui - o jogo continua mesmo após pousar
                 else:
                     foguete.velocidade[1] = 0
                     foguete.angular_velocity = 0
@@ -281,16 +290,23 @@ while running:
         if arrow_length_x > MAX_ARROW_LENGTH:
             arrow_length_x = MAX_ARROW_LENGTH
             blinking_x = True
-        if not blinking_x or (blinking_x and blink_timer < BLINK_INTERVAL / 2):
+        
+        # Corrigido: usar o módulo para garantir que o blink_timer cicla corretamente
+        should_draw = not blinking_x or (blink_timer <= BLINK_INTERVAL / 2)
+        if should_draw:
             speed_red_end = (SPEED_GROUP_CENTER[0] + math.copysign(arrow_length_x, foguete.velocidade[0]), SPEED_GROUP_CENTER[1])
             draw_arrow(screen, (255, 0, 0), SPEED_GROUP_CENTER, speed_red_end)
+    
     if abs(foguete.velocidade[1]) >= MIN_VELOCITY_DISPLAY:
         arrow_length_y = abs(foguete.velocidade[1]) * ARROW_SCALE
         blinking_y = False
         if arrow_length_y > MAX_ARROW_LENGTH:
             arrow_length_y = MAX_ARROW_LENGTH
             blinking_y = True
-        if not blinking_y or (blinking_y and blink_timer < BLINK_INTERVAL / 2):
+        
+        # Corrigido: usar o módulo para garantir que o blink_timer cicla corretamente
+        should_draw = not blinking_y or (blink_timer <= BLINK_INTERVAL / 2)
+        if should_draw:
             speed_blue_end = (SPEED_GROUP_CENTER[0], SPEED_GROUP_CENTER[1] - math.copysign(arrow_length_y, foguete.velocidade[1]))
             draw_arrow(screen, (0, 0, 255), SPEED_GROUP_CENTER, speed_blue_end)
     speed_label = small_font.render("Speed", True, (255, 255, 255))
@@ -314,24 +330,29 @@ while running:
     # Exibir mensagens de estado em um único lugar no código para evitar sobreposição
     if foguete.landed:
         # Caixa de fundo para a mensagem para melhor legibilidade
-        if foguete.target_reached:
+        if hasattr(foguete, 'target_reached') and foguete.target_reached:
             msg_text = "Houston, we have a perfect landing!"
             msg_color = (0, 255, 0)  # Verde para sucesso completo
+            # Adiciona um fundo semi-transparente para melhorar a legibilidade
+            landed_msg = small_font.render(msg_text, True, msg_color)
+            msg_rect = landed_msg.get_rect(center=(WIDTH//2, HEIGHT//2))
+            bg_rect = msg_rect.inflate(20, 10)
+            bg_surface = pygame.Surface((bg_rect.width, bg_rect.height), pygame.SRCALPHA)
+            bg_surface.fill((0, 0, 0, 180))  # Preto com 70% de opacidade
+            screen.blit(bg_surface, bg_rect.topleft)
+            screen.blit(landed_msg, msg_rect)
         else:
-            msg_text = "Landed, but mission incomplete. Target missed."
-            msg_color = (255, 255, 0)  # Amarelo para sucesso parcial
-        
-        landed_msg = small_font.render(msg_text, True, msg_color)
-        msg_rect = landed_msg.get_rect(center=(WIDTH//2, HEIGHT//2))
-        
-        # Adiciona um fundo semi-transparente para melhorar a legibilidade
-        bg_rect = msg_rect.inflate(20, 10)
-        bg_surface = pygame.Surface((bg_rect.width, bg_rect.height), pygame.SRCALPHA)
-        bg_surface.fill((0, 0, 0, 180))  # Preto com 70% de opacidade
-        screen.blit(bg_surface, bg_rect.topleft)
-        
-        # Renderiza a mensagem
-        screen.blit(landed_msg, msg_rect)
+            # Se pousou sem o target, mostra uma mensagem temporária no canto superior
+            msg_text = "Landed. Get the target and land again to complete mission."
+            msg_color = (255, 255, 0)  # Amarelo para pouso parcial
+            landed_msg = small_font.render(msg_text, True, msg_color)
+            msg_rect = landed_msg.get_rect(center=(WIDTH//2, 30))
+            screen.blit(landed_msg, msg_rect)
+            
+            # Reinicia o pouso - permite levantar novamente
+            if foguete.potencia_motor > 0:
+                foguete.landed = False
+    
     elif foguete.crashed:
         crash_text = crash_font.render("Crash!", True, (255, 0, 0))
         crash_rect = crash_text.get_rect(center=(WIDTH // 2, HEIGHT // 2))
@@ -343,6 +364,14 @@ while running:
         screen.blit(bg_surface, bg_rect.topleft)
         
         screen.blit(crash_text, crash_rect)
+        
+        # Se crashou, encerra o jogo após 3 segundos
+        if landed_message_timer is None:
+            landed_message_timer = 0
+        else:
+            landed_message_timer += delta_time
+            if landed_message_timer >= 3:
+                game_shutdown = True
 
     pygame.display.flip()
 

@@ -195,6 +195,10 @@ class RocketEnvironment:
             on_landing = (self.landing_platform.posicao[0] <= self.rocket.posicao[0] <= 
                          self.landing_platform.posicao[0] + self.landing_platform.comprimento)
             
+            # Inicializar target_reached se não existir
+            if not hasattr(self.rocket, 'target_reached'):
+                self.rocket.target_reached = False
+                
             if landing_speed > self.landing_speed_threshold:
                 self.rocket.crashed = True
                 self.done = True
@@ -202,31 +206,34 @@ class RocketEnvironment:
                 step_reward -= 100
             else:
                 if on_initial or on_landing:
+                    # Ajusta posição para ficar exatamente na plataforma
                     self.rocket.posicao[1] = rocket_half_height
-                    if self.rocket.potencia_motor == 0:
-                        self.rocket.velocidade = [0, 0]
-                        self.rocket.angular_velocity = 0
-                    else:
-                        self.rocket.velocidade[1] = 0
-                        self.rocket.angular_velocity = 0
                     
-                    # Modificação aqui: considera "landed" se estiver na plataforma de pouso, mesmo sem pegar o target
-                    # Mas dá recompensa adicional se tiver pegado o target
-                    if on_landing:
-                        self.rocket.landed = True
-                        self.done = True
-                        # Recompensa base por pousar na plataforma
-                        landing_reward = 200 - self.rocket.fuel_consumed
+                    # Se a potência for zero, para o foguete completamente
+                    if self.rocket.potencia_motor == 0:
+                        self.rocket.velocidade = [0.0, 0.0]  # Importante: usar 0.0 para garantir tipo float
+                        self.rocket.angular_velocity = 0.0
                         
-                        # Recompensa extra se tiver pegado o target
-                        if self.rocket.target_reached:
-                            landing_reward += 300
-                        
-                        step_reward += max(0, landing_reward)
+                        # Marca como pousado se estiver na plataforma de pouso
+                        if on_landing:
+                            self.rocket.landed = True
+                            # Só finaliza a simulação se tiver pegado o target
+                            if self.rocket.target_reached:
+                                self.done = True
+                                landing_reward = 200 - self.rocket.fuel_consumed
+                                landing_reward += 300  # Extra por ter completado com o target
+                                step_reward += max(0, landing_reward)
+                            else:
+                                # Pequena recompensa por pousar sem o target
+                                step_reward += 20
+                    else:
+                        # Se ainda tem potência, só para o movimento vertical mas permite continuar
+                        self.rocket.velocidade[1] = 0.0
+                        # Não marca como pousado se tiver potência
                 else:
+                    # Bateu no chão fora da plataforma
                     self.rocket.crashed = True
                     self.done = True
-                    # Penalidade por crash
                     step_reward -= 100
         
         # Recompensas incrementais
@@ -251,10 +258,12 @@ class RocketEnvironment:
         step_reward -= 0.01 * self.rocket.potencia_motor / 100.0
         
         # Verifica se saiu da tela
-        if (self.rocket.posicao[0] < 0 or self.rocket.posicao[0] > self.width or 
-            self.rocket.posicao[1] < 0 or self.rocket.posicao[1] > self.height):
-            self.done = True
-            step_reward -= 100
+        # Removido: Não deve haver penalização ou fim de jogo por sair da tela
+        # O foguete deve poder viajar livremente pelo espaço
+        # if (self.rocket.posicao[0] < 0 or self.rocket.posicao[0] > self.width or 
+        #    self.rocket.posicao[1] < 0 or self.rocket.posicao[1] > self.height):
+        #    self.done = True
+        #    step_reward -= 100
         
         return self._get_state(), step_reward, self.done, {"status": "in_progress"}
     
