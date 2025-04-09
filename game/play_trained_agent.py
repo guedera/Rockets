@@ -4,6 +4,7 @@ import pygame
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.models import load_model
+from tensorflow.keras.losses import MeanSquaredError
 import math
 
 # Garantir que o diretório atual está no path
@@ -23,8 +24,28 @@ def play_with_trained_agent(model_path):
     WIDTH, HEIGHT = config.WIDTH, config.HEIGHT
     FPS = config.FPS
     
-    # Carrega o modelo treinado
-    model = load_model(model_path)
+    # Carrega o modelo treinado com objetos personalizados para resolver o problema do 'mse'
+    try:
+        # Tenta carregar o modelo com objetos personalizados
+        custom_objects = {
+            'mse': MeanSquaredError(),
+            'mean_squared_error': MeanSquaredError()
+        }
+        model = load_model(model_path, custom_objects=custom_objects)
+        print(f"Modelo carregado com sucesso: {model_path}")
+    except Exception as e:
+        print(f"Erro ao carregar o modelo: {e}")
+        print("Tentando método alternativo de carregamento...")
+        
+        try:
+            # Tenta o método alternativo
+            model = tf.keras.models.load_model(model_path, compile=False)
+            # Compila o modelo manualmente
+            model.compile(loss='mse', optimizer='adam')
+            print("Modelo carregado com método alternativo")
+        except Exception as e:
+            print(f"Falha no carregamento alternativo: {e}")
+            sys.exit(1)
     
     # Inicializa pygame
     pygame.init()

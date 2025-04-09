@@ -239,13 +239,13 @@ class RocketEnvironment:
         # Recompensas incrementais
         # Melhorou a distância até o target?
         if old_distance > self.rocket.distance_to_target:
-            step_reward += 0.1
+            step_reward += 0.5  # Aumentado de 0.3 para 0.5
         else:
             step_reward -= 0.05
         
         # Melhorou o ângulo em relação ao target?
         if old_angle_diff > self.rocket.angle_difference:
-            step_reward += 0.1
+            step_reward += 0.4  # Aumentado de 0.2 para 0.4
         
         # Se já pegou o target, recompensa por melhorar a posição em relação à plataforma de pouso
         if self.rocket.target_reached:
@@ -255,7 +255,7 @@ class RocketEnvironment:
                 step_reward += 0.2
         
         # Penalidade por consumo de combustível (pequena)
-        step_reward -= 0.01 * self.rocket.potencia_motor / 100.0
+        step_reward -= 0.005 * self.rocket.potencia_motor / 100.0  # Reduzido de 0.01 para 0.005
         
         # Verifica se saiu da tela
         # Removido: Não deve haver penalização ou fim de jogo por sair da tela

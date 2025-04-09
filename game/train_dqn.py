@@ -95,7 +95,7 @@ def train_dqn():
     action_size = env.ACTION_SPACE_SIZE
     agent = DQNAgent(state_size, action_size)
     batch_size = 64
-    episodes = 1000
+    episodes = 100
     
     # Para salvar os dados de desempenho
     scores = []
@@ -105,7 +105,7 @@ def train_dqn():
     for e in range(episodes):
         state = env.reset()
         total_reward = 0
-        max_steps = 1000
+        max_steps = 2000
         
         for step in range(max_steps):
             action = agent.act(state)
