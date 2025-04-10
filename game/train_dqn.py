@@ -14,6 +14,22 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from src.environment import RocketEnvironment
 
+# Configura o TensorFlow para usar a GPU e mostrar informações sobre o dispositivo
+print("Verificando dispositivos disponíveis para TensorFlow:")
+gpus = tf.config.list_physical_devices('GPU')
+if gpus:
+    try:
+        # Configura o TensorFlow para usar a memória da GPU de forma dinâmica
+        # Isso evita que o TensorFlow aloque toda a memória da GPU de uma vez
+        for gpu in gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+        print(f"Dispositivos GPU disponíveis: {len(gpus)}")
+        print(f"Utilizando GPU: {gpus[0].name}")
+    except RuntimeError as e:
+        print(f"Erro ao configurar GPU: {e}")
+else:
+    print("Nenhuma GPU encontrada. Treinamento será executado na CPU.")
+
 # Força o modo headless para treinamento mais rápido
 os.environ["SDL_VIDEODRIVER"] = "dummy"
 
@@ -88,24 +104,45 @@ class DQNAgent:
         if self.epsilon > self.epsilon_min:
             self.epsilon *= self.epsilon_decay
 
-def train_dqn():
+def train_dqn(batch_size=64, episodes=1000, use_gpu=True):
+    """
+    Treina um agente DQN para o ambiente RocketEnvironment
+    
+    Args:
+        batch_size: Tamanho do lote de dados para treinamento (maior = melhor utilização da GPU)
+        episodes: Número de episódios de treinamento
+        use_gpu: Define se deve utilizar GPU (quando disponível)
+    """
+    # Se o usuário não quiser usar GPU
+    if not use_gpu:
+        print("Desabilitando GPU por configuração do usuário.")
+        tf.config.set_visible_devices([], 'GPU')
+    
+    # Log do dispositivo que será usado para o treinamento
+    devices = tf.config.list_physical_devices()
+    print(f"Dispositivos disponíveis: {[d.name for d in devices]}")
+    print(f"Dispositivo que será usado: {tf.config.get_visible_devices()}")
+    
     # Configurações do ambiente e treinamento
     env = RocketEnvironment(render_mode=None)  # Modo headless
     state_size = env.get_state_size()
     action_size = env.ACTION_SPACE_SIZE
     agent = DQNAgent(state_size, action_size)
-    batch_size = 64
-    episodes = 100
+    max_steps = 2000
     
     # Para salvar os dados de desempenho
     scores = []
     epsilons = []
     avg_scores = []
     
+    # Tempo de execução
+    import time
+    start_time = time.time()
+    last_time = start_time
+    
     for e in range(episodes):
         state = env.reset()
         total_reward = 0
-        max_steps = 2000
         
         for step in range(max_steps):
             action = agent.act(state)
@@ -131,7 +168,14 @@ def train_dqn():
         avg_score = np.mean(scores[-100:]) if len(scores) >= 100 else np.mean(scores)
         avg_scores.append(avg_score)
         
-        print(f"Episode: {e+1}/{episodes}, Score: {total_reward:.2f}, Epsilon: {agent.epsilon:.2f}, Avg Score: {avg_score:.2f}")
+        # Exibe estatísticas a cada episódio
+        current_time = time.time()
+        elapsed = current_time - last_time
+        total_elapsed = current_time - start_time
+        last_time = current_time
+        
+        print(f"Episode: {e+1}/{episodes}, Score: {total_reward:.2f}, Epsilon: {agent.epsilon:.2f}, " +
+              f"Avg Score: {avg_score:.2f}, Time: {elapsed:.2f}s, Total: {total_elapsed:.2f}s")
         
         # Salva o modelo a cada 100 episódios
         if (e+1) % 100 == 0:
@@ -161,7 +205,21 @@ def train_dqn():
     # Salva o modelo final
     agent.model.save("dqn_model_final.h5")
     
+    print(f"Treinamento concluído em {time.time() - start_time:.2f} segundos.")
     return agent
 
 if __name__ == "__main__":
-    agent = train_dqn()
+    # Processa argumentos de linha de comando, se houver
+    import argparse
+    parser = argparse.ArgumentParser(description='Treinamento de DQN para Rockets')
+    parser.add_argument('--batch-size', type=int, default=64, help='Tamanho do batch (padrão: 64)')
+    parser.add_argument('--episodes', type=int, default=1000, help='Número de episódios (padrão: 1000)')
+    parser.add_argument('--no-gpu', action='store_true', help='Desabilita uso da GPU')
+    args = parser.parse_args()
+    
+    # Treina o modelo com os parâmetros especificados
+    agent = train_dqn(
+        batch_size=args.batch_size,
+        episodes=args.episodes,
+        use_gpu=not args.no_gpu
+    )
